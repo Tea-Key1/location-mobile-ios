@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "Roamie",
+    "slug": "roamie",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon-light.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/icon-light.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F7F5F2"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "usesAppleSignIn": true,
+      "bundleIdentifier": "com.taikiyanada.roamie"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon-light.png",
+        "backgroundColor": "#F7F5F2"
+      },
+      "package": "com.taikiyanada.roamie"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-font",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Roamie uses your current location to set your home area and compare nearby places."
+        }
+      ]
+    ]
+  }
+}

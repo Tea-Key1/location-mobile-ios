@@ -1,0 +1,23 @@
+<svg width="1200" height="400" viewBox="0 0 1200 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="400" fill="#F8F5EF"/>
+
+  <text x="135" y="230"
+        font-family="Georgia, serif"
+        font-size="160"
+        fill="#214D3A"
+        letter-spacing="2">
+    Roamie
+  </text>
+
+  <path
+    d="
+      M860 92
+      C860 78 875 72 885 82
+      C895 72 910 78 910 92
+      C910 110 885 128 885 128
+      C885 128 860 110 860 92
+    "
+    fill="#F6B7C3"
+  />
+
+</svg>

@@ -1,0 +1,21 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1024" height="1024" rx="220" fill="#F8F5EF"/>
+
+  <text x="300" y="700"
+        font-family="Georgia, serif"
+        font-size="520"
+        fill="#214D3A">
+    R
+  </text>
+
+  <path
+    d="
+      M640 250
+      C640 238 652 232 660 240
+      C668 232 680 238 680 250
+      C680 265 660 282 660 282
+      C660 282 640 265 640 250
+    "
+    fill="#F6B7C3"
+  />
+</svg>
