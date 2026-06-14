@@ -32,7 +32,13 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Roamie uses your current location to set your home area and compare nearby places."
+          "locationWhenInUsePermission": "Roamie uses your current location to save your home area, compare nearby places, and record location history when you allow tracking."
+        }
+      ],
+      [
+        "expo-tracking-transparency",
+        {
+          "userTrackingPermission": "Roamie would like permission to use your user ID, home area, location history, and travel mood for partner mobility insights, including sharing with data brokers."
         }
       ]
     ]

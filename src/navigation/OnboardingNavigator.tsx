@@ -16,6 +16,9 @@ from "../screens/onboarding/GenderScreen"
 import PersonalityScreen
 from "../screens/onboarding/PersonalityScreen"
 
+import TrackingConsentScreen
+from "../screens/onboarding/TrackingConsentScreen"
+
 import HomeLocationScreen
 from "../screens/onboarding/HomeLocationScreen"
 
@@ -61,6 +64,13 @@ export default function OnboardingNavigator({
         name="Personality"
         component={
           PersonalityScreen
+        }
+      />
+
+      <Stack.Screen
+        name="TrackingConsent"
+        component={
+          TrackingConsentScreen
         }
       />
 

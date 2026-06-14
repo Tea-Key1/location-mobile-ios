@@ -1,8 +1,13 @@
 import {
   ActivityIndicator,
+  AppState,
   StyleSheet,
   View,
 } from "react-native"
+
+import {
+  useEffect,
+} from "react"
 
 import RootNavigator from "./src/navigation/RootNavigator"
 
@@ -14,6 +19,10 @@ import {
   design,
 } from "./src/styles/design"
 
+import {
+  syncCurrentTrackingConsent,
+} from "./src/utils/trackingConsent"
+
 export default function App() {
 
   const {
@@ -23,7 +32,30 @@ export default function App() {
     loginWithApple,
     completeOnboarding,
     logout,
+    deleteAccount,
   } = useAuth()
+
+  useEffect(() => {
+
+    if (!isAuthenticated) {
+      return
+    }
+
+    const subscription =
+      AppState.addEventListener(
+        "change",
+        (state) => {
+
+          if (state === "active") {
+            syncCurrentTrackingConsent()
+          }
+        }
+      )
+
+    return () => {
+      subscription.remove()
+    }
+  }, [isAuthenticated])
 
   // ==========================================
   // loading
@@ -63,6 +95,7 @@ export default function App() {
         completeOnboarding
       }
       logout={logout}
+      deleteAccount={deleteAccount}
     />
   )
 }

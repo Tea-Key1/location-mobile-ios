@@ -22,6 +22,8 @@ export type LocationItem = {
   accuracy?: number | null
   timestamp: string
   s2_level12_id: string
+  commercial_tracking_allowed_at_collection?: boolean
+  tracking_consent_status_at_collection?: string | null
   prefecture?: string | null
   city?: string | null
   locality?: string | null
@@ -44,6 +46,11 @@ export type SimilaritySearchRequest = {
   top_k?: number
 }
 
+export type SimilarityRankingPeriod =
+  | "week"
+  | "month"
+  | "year"
+
 export type SimilarityResponse = {
   similarity: number
 
@@ -62,6 +69,20 @@ export type SimilarPlaceItem = {
 
 export type SimilaritySearchResponse = {
   items: SimilarPlaceItem[]
+}
+
+export type SimilarityRankingItem = {
+  rank: number
+  area: AreaResponse
+  average_similarity: number
+  best_similarity?: number | null
+  check_count: number
+  latest_checked_at?: string | null
+}
+
+export type SimilarityRankingResponse = {
+  period: SimilarityRankingPeriod
+  items: SimilarityRankingItem[]
 }
 
 export async function getLocations(): Promise<LocationListResponse> {
@@ -112,6 +133,18 @@ export async function searchSimilarity(
       method: "POST",
 
       body: JSON.stringify(payload),
+    }
+  )
+}
+
+export async function getSimilarityRankings(
+  period: SimilarityRankingPeriod
+): Promise<SimilarityRankingResponse> {
+
+  return await apiFetch<SimilarityRankingResponse>(
+    `/similarity/rankings?period=${period}`,
+    {
+      method: "GET",
     }
   )
 }

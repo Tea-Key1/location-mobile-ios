@@ -30,6 +30,7 @@ type Props = {
   ) => Promise<void>
   completeOnboarding: () => Promise<void>
   logout: () => Promise<void>
+  deleteAccount: () => Promise<void>
 }
 
 export default function RootNavigator({
@@ -38,6 +39,7 @@ export default function RootNavigator({
   loginWithApple,
   completeOnboarding,
   logout,
+  deleteAccount,
 }: Props) {
 
   return (
@@ -86,6 +88,9 @@ export default function RootNavigator({
             {() => (
               <MainTabs
                 logout={logout}
+                deleteAccount={
+                  deleteAccount
+                }
               />
             )}
           </Stack.Screen>

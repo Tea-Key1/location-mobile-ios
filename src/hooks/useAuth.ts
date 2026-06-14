@@ -13,6 +13,7 @@ import {
 } from "../api/client"
 
 import {
+  deleteProfile as deleteProfileApi,
   getProfileCompletion,
 } from "../api/profile"
 
@@ -28,6 +29,20 @@ import {
   setCompletedOnboarding as saveCompletedOnboarding,
 }
 from "../store/onboardingStorage"
+
+import {
+  resetTrackingConsentStatus,
+} from "../store/trackingConsentStorage"
+
+import {
+  clearWatchAccessToken,
+  syncWatchAccessToken,
+} from "../services/watchSession"
+
+import {
+  hydrateTrackingConsentFromServer,
+  syncCurrentTrackingConsent,
+} from "../utils/trackingConsent"
 
 // ==========================================
 // useAuth
@@ -87,7 +102,13 @@ export const useAuth = () => {
           const response =
             await getProfileCompletion()
 
+          await syncWatchAccessToken(
+            token
+          )
+
           setIsAuthenticated(true)
+
+          await syncTrackingConsentAfterAuth()
 
           if (response.profile_completed) {
 
@@ -119,6 +140,8 @@ export const useAuth = () => {
           )
 
           setIsAuthenticated(true)
+
+          await syncTrackingConsentAfterAuth()
 
           console.log(
             "profile completion check failed; keeping local session",
@@ -180,6 +203,12 @@ export const useAuth = () => {
         await saveToken(
           response.access_token
         )
+
+        await syncWatchAccessToken(
+          response.access_token
+        )
+
+        await syncTrackingConsentAfterAuth()
 
         if (
           response.profile_completed
@@ -277,11 +306,41 @@ export const useAuth = () => {
     }
   }
 
+  const deleteAccount = async () => {
+
+    try {
+
+      await deleteProfileApi()
+
+      await clearLocalAuthState()
+
+    } catch (error) {
+
+      console.log(
+        "delete account error",
+        error
+      )
+
+      if (isAuthExpiredError(error)) {
+
+        await clearLocalAuthState()
+
+        return
+      }
+
+      throw error
+    }
+  }
+
   const clearLocalAuthState = async () => {
 
     await removeToken()
 
+    await clearWatchAccessToken()
+
     await resetOnboarding()
+
+    await resetTrackingConsentStatus()
 
     setIsAuthenticated(false)
 
@@ -301,6 +360,25 @@ export const useAuth = () => {
     completeOnboarding,
 
     logout,
+
+    deleteAccount,
+  }
+}
+
+async function syncTrackingConsentAfterAuth() {
+
+  try {
+
+    await hydrateTrackingConsentFromServer()
+
+    await syncCurrentTrackingConsent()
+
+  } catch (error) {
+
+    console.log(
+      "sync tracking consent after auth error",
+      error
+    )
   }
 }
 

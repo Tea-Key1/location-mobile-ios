@@ -227,7 +227,7 @@ export default function HomeLocationScreen() {
 
   return (
     <ScreenShell
-      eyebrow="Step 4"
+      eyebrow="Step 5"
       title="Set your home area"
       subtitle="Roamie compares nearby places against the feeling of home, not just distance."
     >

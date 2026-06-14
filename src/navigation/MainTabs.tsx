@@ -10,6 +10,9 @@ from "@expo/vector-icons/Ionicons"
 import HomeScreen
 from "../screens/home/HomeScreen"
 
+import RankingsScreen
+from "../screens/rankings/RankingsScreen"
+
 import SettingsScreen
 from "../screens/settings/SettingsScreen"
 
@@ -19,6 +22,7 @@ import {
 
 type Props = {
   logout: () => Promise<void>
+  deleteAccount: () => Promise<void>
 }
 
 const Tab =
@@ -26,6 +30,7 @@ const Tab =
 
 export default function MainTabs({
   logout,
+  deleteAccount,
 }: Props) {
 
   return (
@@ -95,9 +100,20 @@ export default function MainTabs({
 
           else {
 
-            iconName = focused
-              ? "settings"
-              : "settings-outline"
+            if (
+              route.name === "Rankings"
+            ) {
+
+              iconName = focused
+                ? "trophy"
+                : "trophy-outline"
+
+            } else {
+
+              iconName = focused
+                ? "settings"
+                : "settings-outline"
+            }
           }
 
           return (
@@ -119,6 +135,13 @@ export default function MainTabs({
         component={HomeScreen}
       />
 
+      {/* Rankings */}
+
+      <Tab.Screen
+        name="Rankings"
+        component={RankingsScreen}
+      />
+
       {/* Settings */}
 
       <Tab.Screen
@@ -128,6 +151,9 @@ export default function MainTabs({
 
           <SettingsScreen
             logout={logout}
+            deleteAccount={
+              deleteAccount
+            }
           />
         )}
 

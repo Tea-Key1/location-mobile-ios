@@ -1,6 +1,7 @@
 // src/screens/home/HomeScreen.tsx
 
 import {
+  useRef,
   useState,
 } from "react"
 
@@ -22,6 +23,10 @@ import PrimaryButton
 from "../../components/common/PrimaryButton"
 
 import {
+  ApiError,
+} from "../../api/client"
+
+import {
   getSimilarity,
   SimilarityResponse,
 } from "../../api/location"
@@ -40,12 +45,39 @@ import {
 } from "../../utils/location"
 
 import {
+  formatSimilarityError,
+  hasUsableHomeLocation,
+} from "../../utils/apiErrors"
+
+import {
   similarityLabel,
 } from "../../utils/similarity"
 
 import {
   design,
 } from "../../styles/design"
+
+const SIMILARITY_CACHE_MS =
+  5 * 60 * 1000
+
+const RATE_LIMIT_COOLDOWN_MS =
+  10 * 60 * 1000
+
+type CachedSimilarity = {
+  homeLat: number
+  homeLng: number
+  currentLat: number
+  currentLng: number
+  checkedAt: number
+  result: SimilarityResponse
+}
+
+type SimilarityFallbackInput = {
+  homeLat: number
+  homeLng: number
+  currentLat: number
+  currentLng: number
+}
 
 export default function HomeScreen() {
 
@@ -66,7 +98,31 @@ export default function HomeScreen() {
     setSavingHome,
   ] = useState(false)
 
+  const [
+    retryAt,
+    setRetryAt,
+  ] = useState<number | null>(null)
+
+  const cacheRef =
+    useRef<CachedSimilarity | null>(null)
+
   const handleCheckSimilarity = async () => {
+
+    const now = Date.now()
+    let fallbackInput: SimilarityFallbackInput | null =
+      null
+
+    if (
+      retryAt &&
+      retryAt > now
+    ) {
+      Alert.alert(
+        "Could not check similarity",
+        cooldownMessage(retryAt)
+      )
+
+      return
+    }
 
     try {
 
@@ -75,29 +131,76 @@ export default function HomeScreen() {
       const profile =
         await getMyProfile()
 
+      if (!hasUsableHomeLocation(profile)) {
+        throw new Error(
+          "Set your home location first."
+        )
+      }
+
       const currentLocation =
         await getCurrentLocation()
 
-      await recordCurrentLocation(
-        currentLocation
-      )
+      fallbackInput = {
+        homeLat:
+          profile.home_lat,
+        homeLng:
+          profile.home_lng,
+        currentLat:
+          currentLocation.coordinate.lat,
+        currentLng:
+          currentLocation.coordinate.lng,
+      }
+
+      const cached =
+        getCachedSimilarity(
+          cacheRef.current,
+          fallbackInput.homeLat,
+          fallbackInput.homeLng,
+          fallbackInput.currentLat,
+          fallbackInput.currentLng
+        )
+
+      if (cached) {
+        setResult(cached)
+        setLoading(false)
+        return
+      }
 
       const similarity =
         await getSimilarity({
           home_lat:
-            profile.home_lat,
+            fallbackInput.homeLat,
 
           home_lng:
-            profile.home_lng,
+            fallbackInput.homeLng,
 
           current_lat:
-            currentLocation.coordinate.lat,
+            fallbackInput.currentLat,
 
           current_lng:
-            currentLocation.coordinate.lng,
+            fallbackInput.currentLng,
         })
 
+      cacheRef.current = {
+        homeLat:
+          fallbackInput.homeLat,
+        homeLng:
+          fallbackInput.homeLng,
+        currentLat:
+          fallbackInput.currentLat,
+        currentLng:
+          fallbackInput.currentLng,
+        checkedAt:
+          Date.now(),
+        result:
+          similarity,
+      }
+
       setResult(similarity)
+
+      void recordCurrentLocation(
+        currentLocation
+      )
 
     } catch (error) {
 
@@ -106,11 +209,40 @@ export default function HomeScreen() {
         error
       )
 
+      if (
+        error instanceof ApiError &&
+        error.status === 429
+      ) {
+        if (fallbackInput) {
+          const fallbackResult =
+            buildFallbackSimilarity(
+              fallbackInput
+            )
+
+          cacheRef.current = {
+            ...fallbackInput,
+            checkedAt:
+              Date.now(),
+            result:
+              fallbackResult,
+          }
+
+          setResult(fallbackResult)
+        }
+
+        setRetryAt(
+          Date.now() + RATE_LIMIT_COOLDOWN_MS
+        )
+      }
+
       Alert.alert(
         "Could not check similarity",
-        error instanceof Error
-          ? error.message
-          : "Please try again."
+        error instanceof ApiError &&
+          error.status === 429
+          ? fallbackInput
+            ? "Area lookup is rate limited, so Roamie is showing a local estimate. Try again later to save this check."
+            : "Roamie is rate limited right now. Try again in about 10 minutes."
+          : formatSimilarityError(error)
       )
 
     } finally {
@@ -140,7 +272,13 @@ export default function HomeScreen() {
           currentLocation.coordinate.lng,
       })
 
+      void recordCurrentLocation(
+        currentLocation
+      )
+
       setResult(null)
+      cacheRef.current = null
+      setRetryAt(null)
 
       Alert.alert(
         "Home location updated",
@@ -171,6 +309,10 @@ export default function HomeScreen() {
     result
       ? Math.round(result.similarity * 100)
       : null
+
+  const checkDisabled =
+    loading ||
+    savingHome
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -241,10 +383,17 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.actions}>
+          {retryAt &&
+            retryAt > Date.now() ? (
+              <Text style={styles.cooldown}>
+                {cooldownMessage(retryAt)}
+              </Text>
+            ) : null}
+
           <PrimaryButton
             title="Check current similarity"
             loading={loading}
-            disabled={loading || savingHome}
+            disabled={checkDisabled}
             onPress={handleCheckSimilarity}
           />
 
@@ -295,6 +444,149 @@ function formatArea(
   return values.length > 0
     ? values.join(" ")
     : "Unknown"
+}
+
+function getCachedSimilarity(
+  cached: CachedSimilarity | null,
+  homeLat: number,
+  homeLng: number,
+  currentLat: number,
+  currentLng: number
+): SimilarityResponse | null {
+
+  if (!cached) {
+    return null
+  }
+
+  const fresh =
+    Date.now() - cached.checkedAt <
+    SIMILARITY_CACHE_MS
+
+  if (!fresh) {
+    return null
+  }
+
+  const sameHome =
+    coordinatesAreClose(
+      cached.homeLat,
+      homeLat
+    ) &&
+    coordinatesAreClose(
+      cached.homeLng,
+      homeLng
+    )
+
+  const sameCurrent =
+    coordinatesAreClose(
+      cached.currentLat,
+      currentLat
+    ) &&
+    coordinatesAreClose(
+      cached.currentLng,
+      currentLng
+    )
+
+  return sameHome && sameCurrent
+    ? cached.result
+    : null
+}
+
+function coordinatesAreClose(
+  first: number,
+  second: number
+): boolean {
+
+  return Math.abs(first - second) < 0.0008
+}
+
+function cooldownMessage(
+  retryAt: number
+): string {
+
+  const remainingMs =
+    Math.max(
+      0,
+      retryAt - Date.now()
+    )
+
+  const minutes =
+    Math.max(
+      1,
+      Math.ceil(remainingMs / 60000)
+    )
+
+  return `Roamie is rate limited. Try again in about ${minutes} min.`
+}
+
+function buildFallbackSimilarity(
+  input: SimilarityFallbackInput
+): SimilarityResponse {
+
+  const distanceKm =
+    haversineKm(
+      input.homeLat,
+      input.homeLng,
+      input.currentLat,
+      input.currentLng
+    )
+
+  const similarity =
+    Math.max(
+      0,
+      Math.min(
+        1,
+        Math.exp(-distanceKm / 18)
+      )
+    )
+
+  return {
+    similarity,
+    home_area: {},
+    current_area: {},
+  }
+}
+
+function haversineKm(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): number {
+
+  const earthRadiusKm =
+    6371
+
+  const dLat =
+    toRadians(lat2 - lat1)
+
+  const dLng =
+    toRadians(lng2 - lng1)
+
+  const firstLat =
+    toRadians(lat1)
+
+  const secondLat =
+    toRadians(lat2)
+
+  const value =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(firstLat) *
+      Math.cos(secondLat) *
+      Math.sin(dLng / 2) ** 2
+
+  return earthRadiusKm *
+    2 *
+    Math.atan2(
+      Math.sqrt(value),
+      Math.sqrt(1 - value)
+    )
+}
+
+function toRadians(
+  value: number
+): number {
+
+  return value * Math.PI / 180
 }
 
 const styles = StyleSheet.create({
@@ -398,5 +690,11 @@ const styles = StyleSheet.create({
   actions: {
     gap: 12,
     marginTop: 18,
+  },
+  cooldown: {
+    color: design.colors.muted,
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: "center",
   },
 })

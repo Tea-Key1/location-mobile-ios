@@ -100,7 +100,7 @@ export default function PersonalityScreen() {
           tone={item.tone}
           onPress={() =>
             navigation.navigate(
-              "HomeLocation",
+              "TrackingConsent",
               {
                 age_group:
                   route.params?.age_group,

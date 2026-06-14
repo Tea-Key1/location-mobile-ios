@@ -8,10 +8,6 @@
 	<string>Roamie</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
-	<key>CFBundleIdentifier</key>
-	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
 	<key>CFBundleIconFiles</key>
 	<array>
 		<string>AppIcon-50x50@2x.png</string>
@@ -30,6 +26,10 @@
 			<string>AppIcon</string>
 		</dict>
 	</dict>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
@@ -40,11 +40,13 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Roamie uses your current location to compare nearby places from your wrist.</string>
-	<key>WKCompanionAppBundleIdentifier</key>
-	<string>com.taikiyanada.roamie</string>
+	<key>RCTNewArchEnabled</key>
+	<true/>
 	<key>WKApplication</key>
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>WKCompanionAppBundleIdentifier</key>
+	<string>com.taikiyanada.roamie</string>
 </dict>
 </plist>

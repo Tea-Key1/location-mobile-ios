@@ -5,6 +5,7 @@
   "scripts": {
     "start": "expo start",
     "ios": "expo run:ios",
+    "watch:sim": "sh scripts/install-watch-simulator.sh",
     "android": "expo run:android"
   },
   "dependencies": {
@@ -19,6 +20,7 @@
     "expo-font": "~55.0.8",
     "expo-location": "~55.1.10",
     "expo-secure-store": "~55.0.14",
+    "expo-tracking-transparency": "~55.0.14",
     "react": "19.2.0",
     "react-native": "0.83.6",
     "react-native-gesture-handler": "~2.30.0",
