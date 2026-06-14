@@ -1,6 +1,6 @@
 // src/hooks/useAuth.ts
 
-import { useEffect, useState }
+import { useCallback, useEffect, useState }
 from "react"
 
 import {
@@ -44,6 +44,12 @@ import {
   syncCurrentTrackingConsent,
 } from "../utils/trackingConsent"
 
+export type AuthStatusMessage = {
+  title: string
+  message: string
+  tone: "success" | "info"
+}
+
 // ==========================================
 // useAuth
 // ==========================================
@@ -65,6 +71,18 @@ export const useAuth = () => {
     onboardingCompleted,
     setOnboardingCompleted,
   ] = useState(false)
+
+  const [
+    authStatusMessage,
+    setAuthStatusMessage,
+  ] = useState<AuthStatusMessage | null>(
+    null
+  )
+
+  const clearAuthStatusMessage =
+    useCallback(() => {
+      setAuthStatusMessage(null)
+    }, [])
 
   // ========================================
   // init
@@ -231,6 +249,14 @@ export const useAuth = () => {
 
         setIsAuthenticated(true)
 
+        setAuthStatusMessage({
+          title: "Signed in",
+          message: response.profile_completed
+            ? "You are signed in to your Roamie account."
+            : "You are signed in. Finish setup to start using Roamie.",
+          tone: "success",
+        })
+
       } catch (error) {
 
         console.log(
@@ -288,6 +314,12 @@ export const useAuth = () => {
 
       await clearLocalAuthState()
 
+      setAuthStatusMessage({
+        title: "Logged out",
+        message: "You have been logged out of this Roamie session.",
+        tone: "info",
+      })
+
     } catch (error) {
 
       console.log(
@@ -298,6 +330,12 @@ export const useAuth = () => {
       if (isAuthExpiredError(error)) {
 
         await clearLocalAuthState()
+
+        setAuthStatusMessage({
+          title: "Logged out",
+          message: "Your session had expired, so Roamie cleared this device.",
+          tone: "info",
+        })
 
         return
       }
@@ -314,6 +352,12 @@ export const useAuth = () => {
 
       await clearLocalAuthState()
 
+      setAuthStatusMessage({
+        title: "Account deleted",
+        message: "Your account and associated data have been deleted.",
+        tone: "success",
+      })
+
     } catch (error) {
 
       console.log(
@@ -324,6 +368,12 @@ export const useAuth = () => {
       if (isAuthExpiredError(error)) {
 
         await clearLocalAuthState()
+
+        setAuthStatusMessage({
+          title: "Signed out",
+          message: "Your session had expired, so Roamie cleared this device.",
+          tone: "info",
+        })
 
         return
       }
@@ -362,6 +412,10 @@ export const useAuth = () => {
     logout,
 
     deleteAccount,
+
+    authStatusMessage,
+
+    clearAuthStatusMessage,
   }
 }
 
