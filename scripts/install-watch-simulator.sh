@@ -29,6 +29,7 @@ xcodebuild \
 WATCH_APP_PATH="$(
   find "$HOME/Library/Developer/Xcode/DerivedData" \
     -path "*/Build/Products/Debug-watchsimulator/RoamieWatchApp.app" \
+    ! -path "*/Index.noindex/*" \
     -type d \
     -print |
     sort |
