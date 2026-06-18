@@ -91,7 +91,7 @@ export function useProfile() {
         )
 
       setProfile(
-        updated.profile
+        updated
       )
 
       console.log(

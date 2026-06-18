@@ -190,7 +190,9 @@ final class WatchLocationModel: NSObject, ObservableObject, CLLocationManagerDel
     } catch {
       if isRateLimit(error) {
         let retryAfter =
-          Date().addingTimeInterval(10 * 60)
+          Date().addingTimeInterval(
+            retryAfterSeconds(for: error)
+          )
 
         self.retryAfter = retryAfter
         cooldownText = cooldownMessage(
@@ -362,12 +364,33 @@ final class WatchLocationModel: NSObject, ObservableObject, CLLocationManagerDel
     }
 
     switch apiError {
-    case .rateLimited:
+    case .rateLimited(_):
       return true
     case .badStatus(let status):
       return status == 429
     default:
       return false
+    }
+  }
+
+  private func retryAfterSeconds(
+    for error: Error
+  ) -> TimeInterval {
+    guard let apiError = error as? RoamieAPIError else {
+      return 3 * 60
+    }
+
+    switch apiError {
+    case .rateLimited(let seconds):
+      if let seconds,
+        seconds > 0
+      {
+        return seconds
+      }
+
+      return 3 * 60
+    default:
+      return 3 * 60
     }
   }
 

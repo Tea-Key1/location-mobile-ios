@@ -25,6 +25,11 @@ import {
   syncCurrentTrackingConsent,
 } from "./src/utils/trackingConsent"
 
+import {
+  ensureBackgroundSimilarityUpdates,
+  stopBackgroundSimilarityUpdates,
+} from "./src/services/backgroundLocation"
+
 export default function App() {
 
   const {
@@ -42,6 +47,8 @@ export default function App() {
   useEffect(() => {
 
     if (!isAuthenticated) {
+      void stopBackgroundSimilarityUpdates()
+
       return
     }
 
@@ -60,6 +67,23 @@ export default function App() {
       subscription.remove()
     }
   }, [isAuthenticated])
+
+  useEffect(() => {
+
+    if (
+      !isAuthenticated ||
+      !onboardingCompleted
+    ) {
+      void stopBackgroundSimilarityUpdates()
+
+      return
+    }
+
+    void ensureBackgroundSimilarityUpdates()
+  }, [
+    isAuthenticated,
+    onboardingCompleted,
+  ])
 
   useEffect(() => {
 

@@ -6,7 +6,6 @@ import {
   Alert,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native"
 
@@ -15,11 +14,11 @@ import {
   useRoute,
 } from "@react-navigation/native"
 
-import Ionicons
-from "@expo/vector-icons/Ionicons"
-
 import PrimaryButton
 from "../../components/common/PrimaryButton"
+
+import JapanMapPicker
+from "../../components/common/JapanMapPicker"
 
 import ScreenShell
 from "../../components/common/ScreenShell"
@@ -30,13 +29,17 @@ import {
 
 import {
   getCurrentLocation,
-  requestLocationPermission,
+  isJapanAdministrativeCoordinate,
 } from "../../utils/location"
 
 import {
   AgeRange,
   Gender,
 } from "../../types/profile"
+
+import {
+  Coordinate,
+} from "../../types/location"
 
 import {
   design,
@@ -54,161 +57,84 @@ export default function HomeLocationScreen() {
   ] = useState(false)
 
   const [
-    consented,
-    setConsented,
-  ] = useState(false)
-
-  const [
     requestingConsent,
     setRequestingConsent,
   ] = useState(false)
 
-  const handleToggleConsent = async () => {
+  const [
+    selectedHome,
+    setSelectedHome,
+  ] = useState<Coordinate | null>(null)
 
-    if (saving || requestingConsent) {
+  const handleContinue = async () => {
+
+    if (!selectedHome) {
+      Alert.alert(
+        "Choose a home area",
+        "Tap the map to choose your home area, or use your current location."
+      )
+
       return
     }
 
-    if (consented) {
-      setConsented(false)
+    try {
 
-      return
+      setSaving(true)
+
+      await submitProfile(
+        selectedHome.lat,
+        selectedHome.lng
+      )
+
+    } catch (error) {
+
+      console.log(
+        "submit selected home error:",
+        error
+      )
+
+      Alert.alert(
+        "Could not save home",
+        error instanceof Error
+          ? error.message
+          : "Please try again."
+      )
+
+    } finally {
+
+      setSaving(false)
     }
+  }
+
+  const handleUseCurrentLocation = async () => {
 
     try {
 
       setRequestingConsent(true)
 
-      await requestLocationPermission()
-
-      setConsented(true)
-
-    } catch (error) {
-
-      console.log(
-        "location consent error:",
-        error
-      )
-
-      setConsented(false)
-
-      Alert.alert(
-        "Location unavailable",
-        error instanceof Error
-          ? error.message
-          : "Could not enable location access."
-      )
-
-    } finally {
-
-      setRequestingConsent(false)
-    }
-  }
-
-  const handleContinue = async () => {
-
-    try {
-
-      if (!consented) {
-
-        Alert.alert(
-          "Location consent required",
-          "Please agree before using your current location."
-        )
-
-        return
-      }
-
-      setSaving(true)
-
       const currentLocation =
         await getCurrentLocation()
 
-      const ageGroup =
-        parseAgeGroup(
-          route.params?.age_group
+      const valid =
+        await isJapanAdministrativeCoordinate(
+          currentLocation.coordinate
         )
 
-      const gender =
-        parseGender(
-          route.params?.gender
-        )
-
-      if (!ageGroup || !gender) {
+      if (!valid) {
         throw new Error(
-          "Onboarding information is incomplete."
+          "Choose a location within Japan from the map."
         )
       }
 
-      const response =
-        await submitOnboarding({
-          age_group:
-            ageGroup,
-
-          gender:
-            gender,
-
-          home_lat:
-            currentLocation.coordinate.lat,
-
-          home_lng:
-            currentLocation.coordinate.lng,
-
-          calm:
-            normalizeScore(
-              route.params?.calm
-            ),
-
-          vivid:
-            normalizeScore(
-              route.params?.vivid
-            ),
-
-          roamer:
-            normalizeScore(
-              route.params?.roamer
-            ),
-
-          luxury:
-            normalizeScore(
-              route.params?.luxury
-            ),
-
-          nature:
-            normalizeScore(
-              route.params?.nature
-            ),
-
-          nightlife:
-            normalizeScore(
-              route.params?.nightlife
-            ),
-
-          local:
-            normalizeScore(
-              route.params?.local
-            ),
-
-          creative:
-            normalizeScore(
-              route.params?.creative
-            ),
-        })
-
-      if (!response.profile_completed) {
-        throw new Error(
-          "Profile was saved but is not complete yet."
-        )
-      }
-
-      navigation.navigate(
-        "Complete"
+      await submitProfile(
+        currentLocation.coordinate.lat,
+        currentLocation.coordinate.lng
       )
 
     } catch (error) {
 
       console.log(
-        "submit onboarding error:",
+        "submit current home error:",
         error
       )
 
@@ -221,53 +147,167 @@ export default function HomeLocationScreen() {
 
     } finally {
 
+      setRequestingConsent(false)
+    }
+  }
+
+  const handleSkip = async () => {
+
+    try {
+
+      setSaving(true)
+
+      await submitProfile()
+
+    } catch (error) {
+
+      console.log(
+        "submit onboarding without location error:",
+        error
+      )
+
+      navigation.navigate(
+        "Complete"
+      )
+
+    } finally {
+
       setSaving(false)
     }
+  }
+
+  const submitProfile = async (
+    homeLat?: number,
+    homeLng?: number
+  ) => {
+
+    const ageGroup =
+      parseAgeGroup(
+        route.params?.age_group
+      )
+
+    const gender =
+      parseGender(
+        route.params?.gender
+      )
+
+    if (!ageGroup || !gender) {
+      throw new Error(
+        "Onboarding information is incomplete."
+      )
+    }
+
+    const homePayload =
+      typeof homeLat === "number" &&
+      typeof homeLng === "number"
+        ? {
+          home_lat:
+            homeLat,
+
+          home_lng:
+            homeLng,
+        }
+        : {}
+
+    await submitOnboarding({
+      age_group:
+        ageGroup,
+
+      gender:
+        gender,
+
+      ...homePayload,
+
+      calm:
+        normalizeScore(
+          route.params?.calm
+        ),
+
+      vivid:
+        normalizeScore(
+          route.params?.vivid
+        ),
+
+      roamer:
+        normalizeScore(
+          route.params?.roamer
+        ),
+
+      luxury:
+        normalizeScore(
+          route.params?.luxury
+        ),
+
+      nature:
+        normalizeScore(
+          route.params?.nature
+        ),
+
+      nightlife:
+        normalizeScore(
+          route.params?.nightlife
+        ),
+
+      local:
+        normalizeScore(
+          route.params?.local
+        ),
+
+      creative:
+        normalizeScore(
+          route.params?.creative
+        ),
+    })
+
+    navigation.navigate(
+      "Complete"
+    )
   }
 
   return (
     <ScreenShell
       eyebrow="Step 5"
       title="Set your home area"
-      subtitle="Roamie compares nearby places against the feeling of home, not just distance."
+      subtitle="Choose anywhere in Japan from the map. Location Services are only needed if you use your device location."
+      scroll
     >
-      <TouchableOpacity
-        style={styles.consentRow}
-        activeOpacity={0.8}
-        disabled={saving || requestingConsent}
-        onPress={handleToggleConsent}
-      >
-        <View
-          style={[
-            styles.checkbox,
-            consented && styles.checkboxChecked,
-          ]}
-        >
-          {consented ? (
-            <Ionicons
-              name="checkmark"
-              size={17}
-              color="#FFFFFF"
-            />
-          ) : null}
-        </View>
-
-        <Text style={styles.consentText}>
-          Use my current location as my home area for matching.
-        </Text>
-      </TouchableOpacity>
+      <JapanMapPicker
+        title="Home area"
+        value={selectedHome}
+        markerTitle="Home area"
+        onChange={setSelectedHome}
+      />
 
       <View style={styles.buttonWrap}>
         <PrimaryButton
-          title="Use current location"
-          loading={saving || requestingConsent}
-          disabled={!consented || saving || requestingConsent}
+          title="Use selected area"
+          loading={saving}
+          disabled={!selectedHome || saving || requestingConsent}
           onPress={handleContinue}
         />
       </View>
 
+      <View style={styles.secondaryButtonWrap}>
+        <PrimaryButton
+          title="Use current location"
+          variant="outline"
+          disabled={saving || requestingConsent}
+          loading={requestingConsent}
+          onPress={handleUseCurrentLocation}
+        />
+      </View>
+
+      <View style={styles.secondaryButtonWrap}>
+        <PrimaryButton
+          title="Skip for now"
+          variant="outline"
+          disabled={saving || requestingConsent}
+          onPress={handleSkip}
+        />
+      </View>
+
       <Text style={styles.caption}>
-        You can update this later from Home.
+        You can set or update this later from Home.
       </Text>
     </ScreenShell>
   )
@@ -329,37 +369,11 @@ function normalizeScore(
 }
 
 const styles = StyleSheet.create({
-  consentRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: design.radius.card,
-    borderWidth: 1,
-    borderColor: design.colors.softLine,
-    backgroundColor: design.colors.surface,
-    padding: 16,
-    ...design.shadow,
-  },
-  checkbox: {
-    width: 26,
-    height: 26,
-    borderRadius: 7,
-    borderWidth: 1.5,
-    borderColor: design.colors.greenDark,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  checkboxChecked: {
-    backgroundColor: design.colors.greenDark,
-  },
-  consentText: {
-    flex: 1,
-    fontSize: 15,
-    lineHeight: 21,
-    color: design.colors.ink,
-  },
   buttonWrap: {
     marginTop: 22,
+  },
+  secondaryButtonWrap: {
+    marginTop: 12,
   },
   caption: {
     marginTop: 15,

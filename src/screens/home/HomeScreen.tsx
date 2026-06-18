@@ -1,12 +1,14 @@
 // src/screens/home/HomeScreen.tsx
 
 import {
+  useEffect,
   useRef,
   useState,
 } from "react"
 
 import {
   Alert,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -16,11 +18,11 @@ import {
   SafeAreaView,
 } from "react-native-safe-area-context"
 
-import AmbientMap
-from "../../components/common/AmbientMap"
-
 import PrimaryButton
 from "../../components/common/PrimaryButton"
+
+import JapanMapPicker
+from "../../components/common/JapanMapPicker"
 
 import {
   ApiError,
@@ -42,7 +44,14 @@ import {
 
 import {
   getCurrentLocation,
+  isJapanAdministrativeCoordinate,
+  reverseGeocode,
 } from "../../utils/location"
+
+import {
+  Coordinate,
+  CurrentLocation,
+} from "../../types/location"
 
 import {
   formatSimilarityError,
@@ -61,7 +70,7 @@ const SIMILARITY_CACHE_MS =
   5 * 60 * 1000
 
 const RATE_LIMIT_COOLDOWN_MS =
-  10 * 60 * 1000
+  3 * 60 * 1000
 
 type CachedSimilarity = {
   homeLat: number
@@ -79,7 +88,21 @@ type SimilarityFallbackInput = {
   currentLng: number
 }
 
-export default function HomeScreen() {
+type Props = {
+  hasHomeLocation: boolean
+  homeStatusLoaded: boolean
+  canUpdateHomeToday: boolean
+  onHomeLocationUpdated: (
+    coordinate: Coordinate
+  ) => Promise<void>
+}
+
+export default function HomeScreen({
+  hasHomeLocation,
+  homeStatusLoaded,
+  canUpdateHomeToday,
+  onHomeLocationUpdated,
+}: Props) {
 
   const [
     loading,
@@ -94,19 +117,65 @@ export default function HomeScreen() {
   )
 
   const [
-    savingHome,
-    setSavingHome,
-  ] = useState(false)
-
-  const [
     retryAt,
     setRetryAt,
   ] = useState<number | null>(null)
 
+  const [
+    lastPlace,
+    setLastPlace,
+  ] = useState<Coordinate | null>(null)
+
+  const [
+    lastPlaceArea,
+    setLastPlaceArea,
+  ] = useState<SimilarityResponse["current_area"] | null>(
+    null
+  )
+
+  const [
+    manualHomePlace,
+    setManualHomePlace,
+  ] = useState<Coordinate | null>(null)
+
+  const [
+    manualCurrentPlace,
+    setManualCurrentPlace,
+  ] = useState<Coordinate | null>(null)
+
+  const [
+    homePickerVisible,
+    setHomePickerVisible,
+  ] = useState(!hasHomeLocation)
+
+  const [
+    currentPickerVisible,
+    setCurrentPickerVisible,
+  ] = useState(false)
+
+  const [
+    savingHome,
+    setSavingHome,
+  ] = useState(false)
+
   const cacheRef =
     useRef<CachedSimilarity | null>(null)
 
-  const handleCheckSimilarity = async () => {
+  const homeUpdateLocked =
+    !homeStatusLoaded ||
+    (
+      hasHomeLocation &&
+      !canUpdateHomeToday
+    )
+
+  useEffect(() => {
+
+    if (hasHomeLocation) {
+      setHomePickerVisible(false)
+    }
+  }, [hasHomeLocation])
+
+  const handleCheckDeviceLocation = async () => {
 
     const now = Date.now()
     let fallbackInput: SimilarityFallbackInput | null =
@@ -133,12 +202,23 @@ export default function HomeScreen() {
 
       if (!hasUsableHomeLocation(profile)) {
         throw new Error(
-          "Set your home location first."
+          "Set your home location on Home first."
         )
       }
 
       const currentLocation =
         await getCurrentLocation()
+
+      const valid =
+        await isJapanAdministrativeCoordinate(
+          currentLocation.coordinate
+        )
+
+      if (!valid) {
+        throw new Error(
+          "Choose a place in Japan manually."
+        )
+      }
 
       fallbackInput = {
         homeLat:
@@ -151,61 +231,23 @@ export default function HomeScreen() {
           currentLocation.coordinate.lng,
       }
 
-      const cached =
-        getCachedSimilarity(
-          cacheRef.current,
-          fallbackInput.homeLat,
-          fallbackInput.homeLng,
-          fallbackInput.currentLat,
-          fallbackInput.currentLng
-        )
+      await submitSimilarity(
+        fallbackInput,
+        {
+          source:
+            "device",
+          currentLocation,
+        }
+      )
 
-      if (cached) {
-        setResult(cached)
-        setLoading(false)
-        return
-      }
-
-      const similarity =
-        await getSimilarity({
-          home_lat:
-            fallbackInput.homeLat,
-
-          home_lng:
-            fallbackInput.homeLng,
-
-          current_lat:
-            fallbackInput.currentLat,
-
-          current_lng:
-            fallbackInput.currentLng,
-        })
-
-      cacheRef.current = {
-        homeLat:
-          fallbackInput.homeLat,
-        homeLng:
-          fallbackInput.homeLng,
-        currentLat:
-          fallbackInput.currentLat,
-        currentLng:
-          fallbackInput.currentLng,
-        checkedAt:
-          Date.now(),
-        result:
-          similarity,
-      }
-
-      setResult(similarity)
-
-      void recordCurrentLocation(
-        currentLocation
+      setLastPlace(
+        currentLocation.coordinate
       )
 
     } catch (error) {
 
       console.log(
-        "check similarity error:",
+        "check device similarity error:",
         error
       )
 
@@ -215,9 +257,20 @@ export default function HomeScreen() {
       ) {
         if (fallbackInput) {
           const fallbackResult =
-            buildFallbackSimilarity(
+            await buildFallbackSimilarity(
               fallbackInput
             )
+
+          setLastPlaceArea(
+            fallbackResult.current_area
+          )
+
+          setLastPlace({
+            lat:
+              fallbackInput.currentLat,
+            lng:
+              fallbackInput.currentLng,
+          })
 
           cacheRef.current = {
             ...fallbackInput,
@@ -228,21 +281,22 @@ export default function HomeScreen() {
           }
 
           setResult(fallbackResult)
+
+          setRetryAt(
+            getRateLimitRetryAt(error)
+          )
+
+          return
         }
 
         setRetryAt(
-          Date.now() + RATE_LIMIT_COOLDOWN_MS
+          getRateLimitRetryAt(error)
         )
       }
 
       Alert.alert(
         "Could not check similarity",
-        error instanceof ApiError &&
-          error.status === 429
-          ? fallbackInput
-            ? "Area lookup is rate limited, so Roamie is showing a local estimate. Try again later to save this check."
-            : "Roamie is rate limited right now. Try again in about 10 minutes."
-          : formatSimilarityError(error)
+        formatSimilarityError(error)
       )
 
     } finally {
@@ -251,7 +305,152 @@ export default function HomeScreen() {
     }
   }
 
-  const handleUpdateHomeLocation = async () => {
+  const handleCheckManualLocation = async () => {
+
+    const now = Date.now()
+    let fallbackInput: SimilarityFallbackInput | null =
+      null
+
+    if (
+      retryAt &&
+      retryAt > now
+    ) {
+      Alert.alert(
+        "Could not check similarity",
+        cooldownMessage(retryAt)
+      )
+
+      return
+    }
+
+    if (!manualCurrentPlace) {
+      Alert.alert(
+        "Choose a place",
+        "Tap the map to choose the area you want to compare with Home."
+      )
+
+      return
+    }
+
+    try {
+
+      setLoading(true)
+
+      const profile =
+        await getMyProfile()
+
+      if (!hasUsableHomeLocation(profile)) {
+        throw new Error(
+          "Set your home location on Home first."
+        )
+      }
+
+      const valid =
+        await isJapanAdministrativeCoordinate(
+          manualCurrentPlace
+        )
+
+      if (!valid) {
+        throw new Error(
+          "Choose a land area in Japan."
+        )
+      }
+
+      fallbackInput = {
+        homeLat:
+          profile.home_lat,
+        homeLng:
+          profile.home_lng,
+        currentLat:
+          manualCurrentPlace.lat,
+        currentLng:
+          manualCurrentPlace.lng,
+      }
+
+      await submitSimilarity(
+        fallbackInput,
+        {
+          source:
+            "manual",
+        }
+      )
+
+      setLastPlace(
+        manualCurrentPlace
+      )
+
+      setCurrentPickerVisible(false)
+
+    } catch (error) {
+
+      console.log(
+        "check manual similarity error:",
+        error
+      )
+
+      if (
+        error instanceof ApiError &&
+        error.status === 429
+      ) {
+        if (fallbackInput) {
+          const fallbackResult =
+            await buildFallbackSimilarity(
+              fallbackInput
+            )
+
+          setLastPlaceArea(
+            fallbackResult.current_area
+          )
+
+          setLastPlace({
+            lat:
+              fallbackInput.currentLat,
+            lng:
+              fallbackInput.currentLng,
+          })
+
+          cacheRef.current = {
+            ...fallbackInput,
+            checkedAt:
+              Date.now(),
+            result:
+              fallbackResult,
+          }
+
+          setResult(fallbackResult)
+
+          setRetryAt(
+            getRateLimitRetryAt(error)
+          )
+
+          setCurrentPickerVisible(false)
+
+          return
+        }
+
+        setRetryAt(
+          getRateLimitRetryAt(error)
+        )
+      }
+
+      Alert.alert(
+        "Could not check similarity",
+        formatSimilarityError(error)
+      )
+
+    } finally {
+
+      setLoading(false)
+    }
+  }
+
+  const handleSetHomeFromDevice = async () => {
+
+    if (homeUpdateLocked) {
+      showHomeUpdateLimitAlert()
+
+      return
+    }
 
     try {
 
@@ -260,35 +459,81 @@ export default function HomeScreen() {
       const currentLocation =
         await getCurrentLocation()
 
-      await recordCurrentLocation(
-        currentLocation
-      )
+      const valid =
+        await isJapanAdministrativeCoordinate(
+          currentLocation.coordinate
+        )
 
-      await updateHomeLocation({
-        home_lat:
-          currentLocation.coordinate.lat,
+      if (!valid) {
+        throw new Error(
+          "Choose a place in Japan manually."
+        )
+      }
 
-        home_lng:
-          currentLocation.coordinate.lng,
-      })
-
-      void recordCurrentLocation(
-        currentLocation
-      )
-
-      setResult(null)
-      cacheRef.current = null
-      setRetryAt(null)
-
-      Alert.alert(
-        "Home location updated",
-        "Your current location has been saved as your home area."
+      await saveHomeLocation(
+        currentLocation.coordinate
       )
 
     } catch (error) {
 
       console.log(
-        "update home location error:",
+        "set home from device error:",
+        error
+      )
+
+      if (error instanceof ApiError) {
+        Alert.alert(
+          "Could not update home",
+          error.message || "Please try again."
+        )
+
+        return
+      }
+
+      setHomePickerVisible(true)
+
+      Alert.alert(
+        "Could not use device location",
+        error instanceof Error
+          ? error.message
+          : "Select your Home area from the map."
+      )
+
+    } finally {
+
+      setSavingHome(false)
+    }
+  }
+
+  const handleSaveManualHome = async () => {
+
+    if (homeUpdateLocked) {
+      showHomeUpdateLimitAlert()
+
+      return
+    }
+
+    if (!manualHomePlace) {
+      Alert.alert(
+        "Choose a home area",
+        "Tap the map to choose the area you want to save as Home."
+      )
+
+      return
+    }
+
+    try {
+
+      setSavingHome(true)
+
+      await saveHomeLocation(
+        manualHomePlace
+      )
+
+    } catch (error) {
+
+      console.log(
+        "save manual home error:",
         error
       )
 
@@ -305,18 +550,115 @@ export default function HomeScreen() {
     }
   }
 
+  const saveHomeLocation = async (
+    coordinate: Coordinate
+  ) => {
+
+    await updateHomeLocation({
+      home_lat:
+        coordinate.lat,
+      home_lng:
+        coordinate.lng,
+    })
+
+    await onHomeLocationUpdated(coordinate)
+
+    setHomePickerVisible(false)
+    setManualHomePlace(null)
+    setResult(null)
+    cacheRef.current = null
+    setRetryAt(null)
+
+    Alert.alert(
+      "Home location updated",
+      "Your Home location has been saved."
+    )
+  }
+
+  const submitSimilarity = async (
+    fallbackInput: SimilarityFallbackInput,
+    options: {
+      source: "device" | "manual"
+      currentLocation?: CurrentLocation
+    }
+  ) => {
+
+    const cached =
+      getCachedSimilarity(
+        cacheRef.current,
+        fallbackInput.homeLat,
+        fallbackInput.homeLng,
+        fallbackInput.currentLat,
+        fallbackInput.currentLng
+      )
+
+    if (cached) {
+      setResult(cached)
+      setLastPlaceArea(
+        cached.current_area
+      )
+
+      return
+    }
+
+    const response =
+      await getSimilarity({
+        home_lat:
+          fallbackInput.homeLat,
+        home_lng:
+          fallbackInput.homeLng,
+        current_lat:
+          fallbackInput.currentLat,
+        current_lng:
+          fallbackInput.currentLng,
+        source:
+          options.source,
+      })
+
+    const similarity =
+      await fillMissingSimilarityAreas(
+        response,
+        fallbackInput
+      )
+
+    cacheRef.current = {
+      ...fallbackInput,
+      checkedAt:
+        Date.now(),
+      result:
+        similarity,
+    }
+
+    setResult(similarity)
+    setLastPlaceArea(
+      similarity.current_area
+    )
+
+    if (options.currentLocation) {
+      void recordCurrentLocation(
+        options.currentLocation
+      )
+    }
+  }
+
   const score =
     result
       ? Math.round(result.similarity * 100)
       : null
 
-  const checkDisabled =
-    loading ||
-    savingHome
+  const compareAreaName =
+    formatArea(
+      result?.current_area ??
+      lastPlaceArea ??
+      {}
+    )
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
           <Text style={styles.kicker}>
             Today
@@ -325,9 +667,11 @@ export default function HomeScreen() {
           <Text style={styles.title}>
             Find the nearby feeling.
           </Text>
-        </View>
 
-        <AmbientMap compact />
+          <Text style={styles.subtitle}>
+            Compare your current area, or choose a place manually.
+          </Text>
+        </View>
 
         <View style={styles.resultCard}>
           <View style={styles.scoreRow}>
@@ -364,7 +708,9 @@ export default function HomeScreen() {
           <Text style={styles.label}>
             {result
               ? similarityLabel(result.similarity)
-              : "Compare your current spot with the profile of home."}
+              : hasHomeLocation
+                ? "Use your current location or choose a place on the map."
+                : "Set Home below before checking your current location."}
           </Text>
 
           {result ? (
@@ -391,21 +737,151 @@ export default function HomeScreen() {
             ) : null}
 
           <PrimaryButton
-            title="Check current similarity"
+            title="Check current location"
             loading={loading}
-            disabled={checkDisabled}
-            onPress={handleCheckSimilarity}
+            disabled={
+              loading ||
+              !homeStatusLoaded ||
+              !hasHomeLocation
+            }
+            onPress={handleCheckDeviceLocation}
           />
 
           <PrimaryButton
-            title="Set here as Home"
+            title="Choose place manually"
             variant="outline"
-            loading={savingHome}
-            disabled={loading || savingHome}
-            onPress={handleUpdateHomeLocation}
+            disabled={
+              loading ||
+              !homeStatusLoaded ||
+              !hasHomeLocation
+            }
+            onPress={() => {
+              setCurrentPickerVisible(true)
+            }}
           />
+
+          {currentPickerVisible ? (
+            <View style={styles.currentPicker}>
+              <JapanMapPicker
+                title="Choose place"
+                value={manualCurrentPlace}
+                markerTitle="Selected place"
+                onChange={setManualCurrentPlace}
+                helperText={
+                  manualCurrentPlace
+                    ? undefined
+                    : "Tap a land area in Japan to compare with Home."
+                }
+              />
+
+              <View style={styles.currentPickerActions}>
+                <PrimaryButton
+                  title="Check selected place"
+                  loading={loading}
+                  disabled={!manualCurrentPlace || loading}
+                  onPress={handleCheckManualLocation}
+                />
+              </View>
+            </View>
+          ) : null}
         </View>
-      </View>
+
+        <View style={styles.placeCard}>
+          <Text style={styles.placeTitle}>
+            Current area
+          </Text>
+
+          <Text style={styles.placeValue}>
+            {compareAreaName !== "Unknown"
+              ? compareAreaName
+              : lastPlace
+                ? "行政区名を確認中"
+            : "Not checked yet"}
+          </Text>
+        </View>
+
+        <View style={styles.homeCard}>
+          <View style={styles.homeCardHeader}>
+            <View>
+              <Text style={styles.homeLabel}>
+                Home location
+              </Text>
+
+              <Text style={styles.homeStatus}>
+                {!homeStatusLoaded
+                  ? "Checking"
+                  : hasHomeLocation
+                    ? "Ready"
+                    : "Needs to be set"}
+              </Text>
+            </View>
+
+            {homeStatusLoaded &&
+              hasHomeLocation &&
+              !canUpdateHomeToday ? (
+              <Text style={styles.lockBadge}>
+                Today done
+              </Text>
+            ) : null}
+          </View>
+
+          <Text style={styles.homeHelp}>
+            {!homeStatusLoaded
+              ? "Checking Home update status."
+              : hasHomeLocation
+                ? "Home can be updated once per day."
+                : "Set Home first to check your current location."}
+          </Text>
+
+          <View style={styles.homeActions}>
+            <PrimaryButton
+              title={
+                hasHomeLocation
+                  ? "Update Home with device"
+                  : "Set Home with device"
+              }
+              variant="outline"
+              loading={savingHome}
+              disabled={savingHome || homeUpdateLocked}
+              onPress={handleSetHomeFromDevice}
+            />
+
+            <PrimaryButton
+              title="Choose Home manually"
+              variant="outline"
+              disabled={savingHome || homeUpdateLocked}
+              onPress={() => {
+                setHomePickerVisible(true)
+              }}
+            />
+          </View>
+
+          {homePickerVisible ? (
+            <View style={styles.homePicker}>
+              <JapanMapPicker
+                title="Choose Home"
+                value={manualHomePlace}
+                markerTitle="Home"
+                onChange={setManualHomePlace}
+                helperText={
+                  manualHomePlace
+                    ? undefined
+                    : "Tap a land area in Japan to set Home."
+                }
+              />
+
+              <View style={styles.homePickerActions}>
+                <PrimaryButton
+                  title="Save Home"
+                  loading={savingHome}
+                  disabled={!manualHomePlace || savingHome || homeUpdateLocked}
+                  onPress={handleSaveManualHome}
+                />
+              </View>
+            </View>
+          ) : null}
+        </View>
+      </ScrollView>
     </SafeAreaView>
   )
 }
@@ -428,6 +904,14 @@ function AreaLine({
         {value}
       </Text>
     </View>
+  )
+}
+
+function showHomeUpdateLimitAlert() {
+
+  Alert.alert(
+    "Home update limit",
+    "Home location can be updated once per day. Try again tomorrow."
   )
 }
 
@@ -518,9 +1002,23 @@ function cooldownMessage(
   return `Roamie is rate limited. Try again in about ${minutes} min.`
 }
 
-function buildFallbackSimilarity(
+function getRateLimitRetryAt(
+  error: ApiError
+): number {
+
+  return Date.now() +
+    (
+      typeof error.retryAfterMs === "number" &&
+      Number.isFinite(error.retryAfterMs) &&
+      error.retryAfterMs > 0
+        ? error.retryAfterMs
+        : RATE_LIMIT_COOLDOWN_MS
+    )
+}
+
+async function buildFallbackSimilarity(
   input: SimilarityFallbackInput
-): SimilarityResponse {
+): Promise<SimilarityResponse> {
 
   const distanceKm =
     haversineKm(
@@ -539,11 +1037,116 @@ function buildFallbackSimilarity(
       )
     )
 
+  const [
+    homeArea,
+    currentArea,
+  ] =
+    await Promise.all([
+      reverseGeocodeArea({
+        lat:
+          input.homeLat,
+        lng:
+          input.homeLng,
+      }),
+      reverseGeocodeArea({
+        lat:
+          input.currentLat,
+        lng:
+          input.currentLng,
+      }),
+    ])
+
   return {
     similarity,
-    home_area: {},
-    current_area: {},
+    home_area:
+      homeArea,
+    current_area:
+      currentArea,
   }
+}
+
+async function fillMissingSimilarityAreas(
+  response: SimilarityResponse,
+  input: SimilarityFallbackInput
+): Promise<SimilarityResponse> {
+
+  if (
+    hasArea(response.home_area) &&
+    hasArea(response.current_area)
+  ) {
+    return response
+  }
+
+  const [
+    homeArea,
+    currentArea,
+  ] =
+    await Promise.all([
+      hasArea(response.home_area)
+        ? Promise.resolve(response.home_area)
+        : reverseGeocodeArea({
+          lat:
+            input.homeLat,
+          lng:
+            input.homeLng,
+        }),
+      hasArea(response.current_area)
+        ? Promise.resolve(response.current_area)
+        : reverseGeocodeArea({
+          lat:
+            input.currentLat,
+          lng:
+            input.currentLng,
+        }),
+    ])
+
+  return {
+    ...response,
+    home_area:
+      homeArea,
+    current_area:
+      currentArea,
+  }
+}
+
+async function reverseGeocodeArea(
+  coordinate: Coordinate
+): Promise<SimilarityResponse["home_area"]> {
+
+  try {
+
+    const location =
+      await reverseGeocode(coordinate)
+
+    return {
+      prefecture:
+        location.prefecture || null,
+      city:
+        location.city || null,
+      district:
+        location.district || null,
+    }
+
+  } catch (error) {
+
+    console.log(
+      "reverse geocode similarity area error:",
+      error
+    )
+
+    return {}
+  }
+}
+
+function hasArea(
+  area: SimilarityResponse["home_area"]
+): boolean {
+
+  return Boolean(
+    area.prefecture ||
+    area.city ||
+    area.district
+  )
 }
 
 function haversineKm(
@@ -595,14 +1198,14 @@ const styles = StyleSheet.create({
     backgroundColor: design.colors.paper,
   },
   container: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: 22,
     paddingTop: 12,
     paddingBottom: 28,
     backgroundColor: design.colors.paper,
   },
   header: {
-    marginBottom: 20,
+    marginBottom: 22,
   },
   kicker: {
     color: design.colors.green,
@@ -618,14 +1221,80 @@ const styles = StyleSheet.create({
     lineHeight: 39,
     fontWeight: "800",
   },
+  subtitle: {
+    marginTop: 10,
+    color: design.colors.muted,
+    fontSize: 16,
+    lineHeight: 23,
+    fontWeight: "600",
+  },
   resultCard: {
-    marginTop: 18,
     borderRadius: design.radius.card,
     backgroundColor: design.colors.surface,
     borderWidth: 1,
     borderColor: design.colors.softLine,
     padding: 18,
     ...design.shadow,
+  },
+  homeCard: {
+    marginTop: 16,
+    borderRadius: design.radius.card,
+    borderWidth: 1,
+    borderColor: design.colors.softLine,
+    backgroundColor: design.colors.surface,
+    padding: 16,
+    ...design.shadow,
+  },
+  homeCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  homeLabel: {
+    color: design.colors.faint,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  homeStatus: {
+    marginTop: 4,
+    color: design.colors.ink,
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: "900",
+  },
+  lockBadge: {
+    overflow: "hidden",
+    borderRadius: design.radius.pill,
+    backgroundColor: design.colors.softLine,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    color: design.colors.muted,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  homeHelp: {
+    marginTop: 9,
+    color: design.colors.muted,
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: "600",
+  },
+  homeActions: {
+    gap: 10,
+    marginTop: 14,
+  },
+  homePicker: {
+    marginTop: 14,
+  },
+  homePickerActions: {
+    marginTop: 12,
+  },
+  currentPicker: {
+    marginTop: 2,
+  },
+  currentPickerActions: {
+    marginTop: 12,
   },
   scoreRow: {
     flexDirection: "row",
@@ -686,6 +1355,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: "right",
     marginLeft: 18,
+  },
+  placeCard: {
+    marginTop: 16,
+    borderRadius: design.radius.card,
+    borderWidth: 1,
+    borderColor: design.colors.softLine,
+    backgroundColor: design.colors.surface,
+    padding: 16,
+  },
+  placeTitle: {
+    color: design.colors.faint,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  placeValue: {
+    marginTop: 6,
+    color: design.colors.ink,
+    fontSize: 18,
+    fontWeight: "800",
   },
   actions: {
     gap: 12,

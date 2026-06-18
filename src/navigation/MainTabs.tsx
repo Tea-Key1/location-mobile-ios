@@ -1,6 +1,12 @@
 // src/navigation/MainTabs.tsx
 
 import {
+  useCallback,
+  useEffect,
+  useState,
+} from "react"
+
+import {
   createBottomTabNavigator
 } from "@react-navigation/bottom-tabs"
 
@@ -20,6 +26,19 @@ import {
   design,
 } from "../styles/design"
 
+import {
+  getMyProfile,
+} from "../api/profile"
+
+import {
+  hasUsableHomeLocation,
+} from "../utils/apiErrors"
+
+import {
+  getLastHomeUpdateDate,
+  saveLastHomeUpdateDate,
+} from "../store/homeLocationUpdateStorage"
+
 type Props = {
   logout: () => Promise<void>
   deleteAccount: () => Promise<void>
@@ -32,6 +51,98 @@ export default function MainTabs({
   logout,
   deleteAccount,
 }: Props) {
+
+  const [
+    hasHomeLocation,
+    setHasHomeLocation,
+  ] = useState(false)
+
+  const [
+    lastHomeUpdateDate,
+    setLastHomeUpdateDate,
+  ] = useState<string | null>(null)
+
+  const [
+    homeStatusLoaded,
+    setHomeStatusLoaded,
+  ] = useState(false)
+
+  const todayKey =
+    getTodayKey()
+
+  const canUpdateHomeToday =
+    homeStatusLoaded &&
+    lastHomeUpdateDate !== todayKey
+
+  const refreshHomeStatus =
+    useCallback(async () => {
+
+      try {
+
+        setHomeStatusLoaded(false)
+
+        const profile =
+          await getMyProfile()
+
+        const usableHome =
+          hasUsableHomeLocation(profile)
+
+        setHasHomeLocation(usableHome)
+
+        const nextHomeCoordinate =
+          usableHome
+            ? {
+              lat:
+                profile.home_lat,
+              lng:
+                profile.home_lng,
+            }
+            : null
+
+        const storedDate =
+          await getLastHomeUpdateDate(
+            nextHomeCoordinate?.lat,
+            nextHomeCoordinate?.lng
+          )
+
+        setLastHomeUpdateDate(storedDate)
+        setHomeStatusLoaded(true)
+
+      } catch (error) {
+
+        setHasHomeLocation(false)
+        setLastHomeUpdateDate(null)
+        setHomeStatusLoaded(true)
+
+        console.log(
+          "refresh home status error:",
+          error
+        )
+      }
+    }, [])
+
+  useEffect(() => {
+    void refreshHomeStatus()
+  }, [refreshHomeStatus])
+
+  const handleHomeLocationUpdated =
+    useCallback(async (
+      coordinate: {
+        lat: number
+        lng: number
+      }
+    ) => {
+
+      await saveLastHomeUpdateDate(
+        todayKey,
+        coordinate.lat,
+        coordinate.lng
+      )
+
+      setLastHomeUpdateDate(todayKey)
+      setHasHomeLocation(true)
+      setHomeStatusLoaded(true)
+    }, [todayKey])
 
   return (
 
@@ -95,7 +206,7 @@ export default function MainTabs({
           }
 
           // =====================
-          // Settings
+          // Rankings / Settings
           // =====================
 
           else {
@@ -132,8 +243,24 @@ export default function MainTabs({
 
       <Tab.Screen
         name="Home"
-        component={HomeScreen}
-      />
+      >
+        {() => (
+          <HomeScreen
+            hasHomeLocation={
+              hasHomeLocation
+            }
+            homeStatusLoaded={
+              homeStatusLoaded
+            }
+            canUpdateHomeToday={
+              canUpdateHomeToday
+            }
+            onHomeLocationUpdated={
+              handleHomeLocationUpdated
+            }
+          />
+        )}
+      </Tab.Screen>
 
       {/* Rankings */}
 
@@ -161,4 +288,23 @@ export default function MainTabs({
 
     </Tab.Navigator>
   )
+}
+
+function getTodayKey(): string {
+
+  const date =
+    new Date()
+
+  const year =
+    date.getFullYear()
+
+  const month =
+    String(date.getMonth() + 1)
+      .padStart(2, "0")
+
+  const day =
+    String(date.getDate())
+      .padStart(2, "0")
+
+  return `${year}-${month}-${day}`
 }

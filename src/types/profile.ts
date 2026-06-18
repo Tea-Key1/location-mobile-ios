@@ -20,9 +20,9 @@ export interface UserProfile {
 
   gender: Gender
 
-  home_lat: number
+  home_lat?: number | null
 
-  home_lng: number
+  home_lng?: number | null
 
   calm: number
 

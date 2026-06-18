@@ -2,6 +2,11 @@
 
 import { apiFetch } from "./client"
 
+export type AppleLoginRequest = {
+  identity_token: string
+  authorization_code?: string | null
+}
+
 export type AppleLoginResponse = {
   access_token: string
   token_type: string
@@ -22,7 +27,8 @@ export type LogoutAllResponse = {
 // =========================================
 
 export async function loginWithApple(
-  identityToken: string
+  identityToken: string,
+  authorizationCode?: string | null
 ): Promise<AppleLoginResponse> {
 
   try {
@@ -37,6 +43,8 @@ export async function loginWithApple(
           body: JSON.stringify({
             identity_token:
               identityToken,
+            authorization_code:
+              authorizationCode ?? null,
           }),
         }
       )

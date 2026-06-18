@@ -16,7 +16,8 @@ import {
 // =========================================
 export async function fetchSimilarity(
   home: Coordinate,
-  current: Coordinate
+  current: Coordinate,
+  source?: "device" | "manual"
 ): Promise<SimilarityResponse> {
 
   const payload: SimilarityRequest = {
@@ -31,6 +32,8 @@ export async function fetchSimilarity(
 
     current_lng:
       current.lng,
+
+    source,
   }
 
   return await getSimilarity(payload)

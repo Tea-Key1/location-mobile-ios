@@ -21,7 +21,8 @@ Use this checklist before release when `GET /similarity/rankings?period=<week|mo
 7. Confirm each period calls `GET /similarity/rankings?period=<period>`.
 8. Confirm ranking rows show:
    - rank starting at `#1`
-   - area text from `prefecture`, `city`, and `district` when available
+   - Home area and Current area combination when available
+   - Current area text from `current_area.prefecture`, `current_area.city`, and `current_area.district` when available
    - `average_similarity` as a percent
    - `check_count`
    - optional `best_similarity` as a percent

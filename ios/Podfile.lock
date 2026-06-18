@@ -88,6 +88,9 @@ PODS:
     - ReactCommon
   - ExpoSecureStore (55.0.14):
     - ExpoModulesCore
+  - ExpoTaskManager (55.0.16):
+    - ExpoModulesCore
+    - UMAppLoader
   - ExpoTrackingTransparency (55.0.14):
     - ExpoModulesCore
   - fast_float (8.0.0)
@@ -3096,6 +3099,7 @@ PODS:
     - SocketRocket
     - Yoga
   - SocketRocket (0.7.1)
+  - UMAppLoader (55.0.5)
   - Yoga (0.0.0)
 
 DEPENDENCIES:
@@ -3114,6 +3118,7 @@ DEPENDENCIES:
   - ExpoModulesCore (from `../node_modules/expo-modules-core`)
   - ExpoModulesJSI (from `../node_modules/expo-modules-core`)
   - ExpoSecureStore (from `../node_modules/expo-secure-store/ios`)
+  - ExpoTaskManager (from `../node_modules/expo-task-manager/ios`)
   - ExpoTrackingTransparency (from `../node_modules/expo-tracking-transparency/ios`)
   - fast_float (from `../node_modules/react-native/third-party-podspecs/fast_float.podspec`)
   - FBLazyVector (from `../node_modules/react-native/Libraries/FBLazyVector`)
@@ -3200,6 +3205,7 @@ DEPENDENCIES:
   - RNSVG (from `../node_modules/react-native-svg`)
   - RNWorklets (from `../node_modules/react-native-worklets`)
   - SocketRocket (~> 0.7.1)
+  - UMAppLoader (from `../node_modules/unimodules-app-loader/ios`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
 
 SPEC REPOS:
@@ -3237,6 +3243,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-modules-core"
   ExpoSecureStore:
     :path: "../node_modules/expo-secure-store/ios"
+  ExpoTaskManager:
+    :path: "../node_modules/expo-task-manager/ios"
   ExpoTrackingTransparency:
     :path: "../node_modules/expo-tracking-transparency/ios"
   fast_float:
@@ -3406,6 +3414,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-svg"
   RNWorklets:
     :path: "../node_modules/react-native-worklets"
+  UMAppLoader:
+    :path: "../node_modules/unimodules-app-loader/ios"
   Yoga:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
@@ -3425,6 +3435,7 @@ SPEC CHECKSUMS:
   ExpoModulesCore: cc07ebf5b947a239f1669cb5856d905cb2b093f7
   ExpoModulesJSI: 964334271fc77832736f66ee1785761cdc778dbe
   ExpoSecureStore: 0e7959ad3a9fa59306d55f26a37854640dd334c2
+  ExpoTaskManager: a288a5a5eab33009b1fb7a413ba47ef7eac23fba
   ExpoTrackingTransparency: c9192aae578499ae6ed9cb844d606b846ffb70e2
   fast_float: b32c788ed9c6a8c584d114d0047beda9664e7cc6
   FBLazyVector: 06b1c8278e6e1b31ef68e9e14c296b7872e79e48
@@ -3510,6 +3521,7 @@ SPEC CHECKSUMS:
   RNSVG: 595abfa0f9ac26d56afcaaedf4e37a00f54cab71
   RNWorklets: a3184955a41f2be46898a937e2821469c8c8da42
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
+  UMAppLoader: 045699ef1cc6afda399a5c78bde728f23bcce213
   Yoga: cf2a67aa1c8a225f0cb98a5f531d6f305d3f12e5
 
 PODFILE CHECKSUM: 5a82adc12cd294ceeb36eb783d03122c0e45bc91

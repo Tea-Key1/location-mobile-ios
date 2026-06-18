@@ -49,6 +49,108 @@ export async function getCurrentLocation(): Promise<CurrentLocation> {
   }
 }
 
+export async function getCurrentLocationIfPermitted():
+  Promise<CurrentLocation | null> {
+
+  const { status } =
+    await Location.getForegroundPermissionsAsync()
+
+  if (status !== "granted") {
+    return null
+  }
+
+  const location =
+    await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    })
+
+  return {
+    coordinate: {
+      lat: location.coords.latitude,
+      lng: location.coords.longitude,
+    },
+    timestamp:
+      location.timestamp
+        ? new Date(location.timestamp).toISOString()
+        : new Date().toISOString(),
+    accuracy:
+      location.coords.accuracy,
+  }
+}
+
+export async function geocodeJapanArea(
+  areaName: string
+): Promise<Coordinate | null> {
+
+  const results =
+    await Location.geocodeAsync(
+      `${areaName}, Japan`
+    )
+
+  if (!results || results.length === 0) {
+    return null
+  }
+
+  return {
+    lat:
+      results[0].latitude,
+
+    lng:
+      results[0].longitude,
+  }
+}
+
+export async function isJapanAdministrativeCoordinate(
+  coordinate: Coordinate
+): Promise<boolean> {
+
+  if (!isWithinJapanBounds(coordinate)) {
+    return false
+  }
+
+  const result =
+    await Location.reverseGeocodeAsync({
+      latitude:
+        coordinate.lat,
+      longitude:
+        coordinate.lng,
+    })
+
+  if (!result || result.length === 0) {
+    return false
+  }
+
+  return result.some((item) => {
+    const geo =
+      item as Location.LocationGeocodedAddress & {
+        isoCountryCode?: string | null
+      }
+
+    const inJapan =
+      geo.isoCountryCode === "JP" ||
+      geo.country === "Japan" ||
+      geo.country === "日本"
+
+    const hasAdministrativeArea =
+      Boolean(geo.region) ||
+      Boolean(geo.city) ||
+      Boolean(geo.subregion) ||
+      Boolean(geo.district)
+
+    return inJapan && hasAdministrativeArea
+  })
+}
+
+function isWithinJapanBounds(
+  coordinate: Coordinate
+): boolean {
+
+  return coordinate.lat >= 20.0 &&
+    coordinate.lat <= 46.5 &&
+    coordinate.lng >= 122.0 &&
+    coordinate.lng <= 154.5
+}
+
 
 // =========================================
 // 住所変換

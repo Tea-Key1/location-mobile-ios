@@ -36,6 +36,8 @@ export interface SimilarityRequest {
   current_lat: number
 
   current_lng: number
+
+  source?: "device" | "manual"
 }
 
 export interface SimilarityResponse {

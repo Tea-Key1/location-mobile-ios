@@ -32,6 +32,19 @@ import {
   design,
 } from "../../styles/design"
 
+import JapanMapPicker, {
+  JapanMapMarker,
+} from "../../components/common/JapanMapPicker"
+
+import {
+  Coordinate,
+} from "../../types/location"
+
+import {
+  geocodeJapanArea,
+  getCurrentLocationIfPermitted,
+} from "../../utils/location"
+
 const periods: Array<{
   label: string
   value: SimilarityRankingPeriod
@@ -49,6 +62,9 @@ const periods: Array<{
     value: "year",
   },
 ]
+
+const MAP_ITEM_LIMIT =
+  5
 
 export default function RankingsScreen() {
 
@@ -76,6 +92,16 @@ export default function RankingsScreen() {
     errorText,
     setErrorText,
   ] = useState<string | null>(null)
+
+  const [
+    currentPlace,
+    setCurrentPlace,
+  ] = useState<Coordinate | null>(null)
+
+  const [
+    rankingMarkers,
+    setRankingMarkers,
+  ] = useState<JapanMapMarker[]>([])
 
   const loadRankings =
     useCallback(async (
@@ -126,6 +152,124 @@ export default function RankingsScreen() {
     loadRankings,
     period,
   ])
+
+  useEffect(() => {
+
+    let mounted = true
+
+    const loadCurrentPlace = async () => {
+
+      try {
+
+        const location =
+          await getCurrentLocationIfPermitted()
+
+        if (!mounted || !location) {
+          return
+        }
+
+        setCurrentPlace(
+          location.coordinate
+        )
+
+      } catch (error) {
+
+        console.log(
+          "load rankings current location error:",
+          error
+        )
+      }
+    }
+
+    void loadCurrentPlace()
+
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  useEffect(() => {
+
+    let mounted = true
+
+    const loadRankingMarkers = async () => {
+
+      const markers:
+        JapanMapMarker[] = []
+
+      for (const item of items.slice(0, MAP_ITEM_LIMIT)) {
+        const areaName =
+          formatArea(getRankingCurrentArea(item))
+
+        if (areaName === "Unknown") {
+          continue
+        }
+
+        try {
+
+          const coordinate =
+            getRankingCoordinate(item) ??
+            await geocodeJapanArea(areaName)
+
+          if (!mounted || !coordinate) {
+            continue
+          }
+
+          markers.push({
+            id:
+              `rank-${period}-${item.rank}-${formatRankingPair(item)}`,
+            coordinate,
+            title:
+              `#${item.rank} ${formatRankingPair(item)}`,
+            description:
+              `Average ${Math.round(item.average_similarity * 100)}%`,
+            pinColor:
+              item.rank === 1
+                ? design.colors.pink
+                : design.colors.green,
+          })
+
+        } catch (error) {
+
+          console.log(
+            "geocode ranking area error:",
+            areaName,
+            error
+          )
+        }
+      }
+
+      if (mounted) {
+        setRankingMarkers(markers)
+      }
+    }
+
+    void loadRankingMarkers()
+
+    return () => {
+      mounted = false
+    }
+  }, [
+    items,
+    period,
+  ])
+
+  const mapMarkers =
+    currentPlace
+      ? [
+        {
+          id: "current-location",
+          coordinate:
+            currentPlace,
+          title: "Current location",
+          description:
+            "Shown because Location Services are allowed",
+          pinColor:
+            design.colors.blue,
+        },
+        ...rankingMarkers,
+      ]
+      : rankingMarkers
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -181,6 +325,19 @@ export default function RankingsScreen() {
           })}
         </View>
 
+        <View style={styles.mapSection}>
+          <JapanMapPicker
+            title="Top towns map"
+            value={null}
+            helperText={
+              mapMarkers.length > 0
+                ? "Blue is your current location. Ranked towns are shown from recent high scores."
+                : "Top ranked towns will appear here after checks."
+            }
+            extraMarkers={mapMarkers}
+          />
+        </View>
+
         {loading ? (
           <View style={styles.loading}>
             <ActivityIndicator
@@ -206,7 +363,7 @@ export default function RankingsScreen() {
         <View style={styles.list}>
           {items.map((item) => (
             <RankingRow
-              key={`${item.rank}-${formatArea(item.area)}`}
+              key={`${item.rank}-${formatRankingPair(item)}`}
               item={item}
             />
           ))}
@@ -214,6 +371,28 @@ export default function RankingsScreen() {
       </ScrollView>
     </SafeAreaView>
   )
+}
+
+function getRankingCoordinate(
+  item: SimilarityRankingItem
+): Coordinate | null {
+
+  if (
+    typeof item.lat !== "number" ||
+    !Number.isFinite(item.lat) ||
+    typeof item.lng !== "number" ||
+    !Number.isFinite(item.lng)
+  ) {
+    return null
+  }
+
+  return {
+    lat:
+      item.lat,
+
+    lng:
+      item.lng,
+  }
 }
 
 function RankingRow({
@@ -247,7 +426,15 @@ function RankingRow({
 
       <View style={styles.rowBody}>
         <Text style={styles.area}>
-          {formatArea(item.area)}
+          {formatRankingPair(item)}
+        </Text>
+
+        <Text style={styles.pairMeta}>
+          Home: {formatArea(getRankingHomeArea(item))}
+        </Text>
+
+        <Text style={styles.meta}>
+          Current: {formatArea(getRankingCurrentArea(item))}
         </Text>
 
         <Text style={styles.meta}>
@@ -266,6 +453,39 @@ function RankingRow({
       </Text>
     </View>
   )
+}
+
+function getRankingHomeArea(
+  item: SimilarityRankingItem
+): SimilarityRankingItem["area"] {
+
+  return item.home_area ??
+    {}
+}
+
+function getRankingCurrentArea(
+  item: SimilarityRankingItem
+): SimilarityRankingItem["area"] {
+
+  return item.current_area ??
+    item.area
+}
+
+function formatRankingPair(
+  item: SimilarityRankingItem
+): string {
+
+  const home =
+    formatArea(getRankingHomeArea(item))
+
+  const current =
+    formatArea(getRankingCurrentArea(item))
+
+  if (home === "Unknown") {
+    return current
+  }
+
+  return `${home} -> ${current}`
 }
 
 function formatArea(
@@ -358,6 +578,9 @@ const styles = StyleSheet.create({
   segmentButtonActive: {
     backgroundColor: design.colors.green,
   },
+  mapSection: {
+    marginBottom: 16,
+  },
   segmentText: {
     color: design.colors.muted,
     fontSize: 13,
@@ -381,7 +604,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   row: {
-    minHeight: 78,
+    minHeight: 96,
     flexDirection: "row",
     alignItems: "center",
     borderRadius: 8,
@@ -412,6 +635,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     marginTop: 2,
+  },
+  pairMeta: {
+    color: design.colors.faint,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 3,
+    fontWeight: "700",
   },
   score: {
     color: design.colors.ink,

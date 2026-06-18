@@ -3,7 +3,6 @@ import {
 } from "react"
 
 import {
-  Alert,
   StyleSheet,
   Text,
   View,
@@ -22,7 +21,6 @@ from "../../components/common/ScreenShell"
 
 import {
   requestCommercialTrackingConsent,
-  syncCurrentTrackingConsent,
 } from "../../utils/trackingConsent"
 
 import {
@@ -48,22 +46,13 @@ export default function TrackingConsentScreen() {
     )
   }
 
-  const handleAskPermission = async () => {
+  const handleContinue = async () => {
 
     try {
 
       setRequesting(true)
 
-      const status =
-        await requestCommercialTrackingConsent()
-
-      if (status !== "authorized") {
-
-        Alert.alert(
-          "Data sharing not enabled",
-          "Roamie will not use your location or profile data for partner mobility insights unless tracking permission is allowed in iOS Settings."
-        )
-      }
+      await requestCommercialTrackingConsent()
 
       goNext()
 
@@ -71,13 +60,6 @@ export default function TrackingConsentScreen() {
 
       setRequesting(false)
     }
-  }
-
-  const handleSkip = async () => {
-
-    await syncCurrentTrackingConsent()
-
-    goNext()
   }
 
   return (
@@ -103,19 +85,10 @@ export default function TrackingConsentScreen() {
 
       <View style={styles.buttonWrap}>
         <PrimaryButton
-          title="Ask permission"
+          title="Continue"
           loading={requesting}
           disabled={requesting}
-          onPress={handleAskPermission}
-        />
-      </View>
-
-      <View style={styles.secondaryButtonWrap}>
-        <PrimaryButton
-          title="Continue without sharing"
-          variant="outline"
-          disabled={requesting}
-          onPress={handleSkip}
+          onPress={handleContinue}
         />
       </View>
     </ScreenShell>
@@ -144,8 +117,5 @@ const styles = StyleSheet.create({
   },
   buttonWrap: {
     marginTop: 18,
-  },
-  secondaryButtonWrap: {
-    marginTop: 12,
   },
 })

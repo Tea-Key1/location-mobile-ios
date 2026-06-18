@@ -23,10 +23,10 @@
 		F2A000000000000000000001 /* WatchSessionModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A000000000000000000101 /* WatchSessionModule.swift */; };
 		F2A000000000000000000002 /* WatchSessionModuleBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = F2A000000000000000000102 /* WatchSessionModuleBridge.m */; };
 		F2A000000000000000000003 /* WatchAuthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A000000000000000000103 /* WatchAuthStore.swift */; };
-		F2A000000000000000000007 /* WatchAuthModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A000000000000000000107 /* WatchAuthModel.swift */; };
 		F2A000000000000000000004 /* WatchConnectivityModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A000000000000000000104 /* WatchConnectivityModel.swift */; };
 		F2A000000000000000000005 /* RoamieAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A000000000000000000105 /* RoamieAPI.swift */; };
 		F2A000000000000000000006 /* WatchLocationModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A000000000000000000106 /* WatchLocationModel.swift */; };
+		F2A000000000000000000007 /* WatchAuthModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A000000000000000000107 /* WatchAuthModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -64,8 +64,8 @@
 		A1000000000000000000110 /* RoamieWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoamieWatchApp.swift; sourceTree = "<group>"; };
 		A1000000000000000000111 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A1000000000000000000112 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		A1000000000000000000122 /* RoamieWatchApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RoamieWatchApp.entitlements; sourceTree = "<group>"; };
 		A1000000000000000000121 /* AppIcon-50x50@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-50x50@2x.png"; sourceTree = "<group>"; };
+		A1000000000000000000122 /* RoamieWatchApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RoamieWatchApp.entitlements; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = Roamie/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		CF7CAB8793FC9E45EA8A5D54 /* libPods-Roamie.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Roamie.a"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -77,10 +77,10 @@
 		F2A000000000000000000101 /* WatchSessionModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WatchSessionModule.swift; path = Roamie/WatchSessionModule.swift; sourceTree = "<group>"; };
 		F2A000000000000000000102 /* WatchSessionModuleBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = WatchSessionModuleBridge.m; path = Roamie/WatchSessionModuleBridge.m; sourceTree = "<group>"; };
 		F2A000000000000000000103 /* WatchAuthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchAuthStore.swift; sourceTree = "<group>"; };
-		F2A000000000000000000107 /* WatchAuthModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchAuthModel.swift; sourceTree = "<group>"; };
 		F2A000000000000000000104 /* WatchConnectivityModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityModel.swift; sourceTree = "<group>"; };
 		F2A000000000000000000105 /* RoamieAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoamieAPI.swift; sourceTree = "<group>"; };
 		F2A000000000000000000106 /* WatchLocationModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchLocationModel.swift; sourceTree = "<group>"; };
+		F2A000000000000000000107 /* WatchAuthModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchAuthModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -368,6 +368,7 @@
 				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/EXConstants.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/ExpoConstants_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoFileSystem/ExpoFileSystem_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoTaskManager/ExpoTaskManager_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/RCT-Folly/RCT-Folly_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/RNCAsyncStorage/RNCAsyncStorage_resources.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/RNSVG/RNSVGFilters.bundle",
@@ -381,6 +382,7 @@
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXConstants.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoConstants_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoFileSystem_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoTaskManager_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RCT-Folly_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNCAsyncStorage_resources.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNSVGFilters.bundle",

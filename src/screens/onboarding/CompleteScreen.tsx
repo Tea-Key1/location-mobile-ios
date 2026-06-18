@@ -53,7 +53,7 @@ export default function CompleteScreen({
       </Text>
 
       <Text style={styles.subtitle}>
-        Roamie will use your home area and personality signal to compare places as you move.
+        Roamie will use your mood profile, and your home area if you set one, to compare places as you move.
       </Text>
 
       <View style={styles.buttonWrap}>

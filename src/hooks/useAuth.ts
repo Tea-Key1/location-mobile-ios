@@ -35,9 +35,17 @@ import {
 } from "../store/trackingConsentStorage"
 
 import {
+  clearLastHomeUpdateDate,
+} from "../store/homeLocationUpdateStorage"
+
+import {
   clearWatchAccessToken,
   syncWatchAccessToken,
 } from "../services/watchSession"
+
+import {
+  stopBackgroundSimilarityUpdates,
+} from "../services/backgroundLocation"
 
 import {
   hydrateTrackingConsentFromServer,
@@ -128,8 +136,11 @@ export const useAuth = () => {
 
           await syncTrackingConsentAfterAuth()
 
-          if (response.profile_completed) {
+          const completed =
+            response.profile_completed ||
+            await hasCompletedOnboarding()
 
+          if (completed) {
             await saveCompletedOnboarding()
 
           } else {
@@ -138,7 +149,7 @@ export const useAuth = () => {
           }
 
           setOnboardingCompleted(
-            response.profile_completed
+            completed
           )
 
         } catch (error) {
@@ -276,19 +287,7 @@ export const useAuth = () => {
 
     try {
 
-      const response =
-        await getProfileCompletion()
-
-      if (!response.profile_completed) {
-
-        await resetOnboarding()
-
-        setOnboardingCompleted(false)
-
-        throw new Error(
-          "Profile is not complete yet."
-        )
-      }
+      await getProfileCompletion()
 
       await saveCompletedOnboarding()
 
@@ -388,9 +387,13 @@ export const useAuth = () => {
 
     await clearWatchAccessToken()
 
+    await stopBackgroundSimilarityUpdates()
+
     await resetOnboarding()
 
     await resetTrackingConsentStatus()
+
+    await clearLastHomeUpdateDate()
 
     setIsAuthenticated(false)
 

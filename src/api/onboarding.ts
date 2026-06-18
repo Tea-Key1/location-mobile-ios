@@ -14,8 +14,8 @@ import {
 export type OnboardingRequest = {
   age_group: AgeRange
   gender: Gender
-  home_lat: number
-  home_lng: number
+  home_lat?: number | null
+  home_lng?: number | null
   calm: number
   vivid: number
   roamer: number

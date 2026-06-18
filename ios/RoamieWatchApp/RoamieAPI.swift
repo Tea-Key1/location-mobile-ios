@@ -6,7 +6,7 @@ enum RoamieAPIError: LocalizedError {
   case missingToken
   case invalidURL
   case homeLocationRequired
-  case rateLimited
+  case rateLimited(TimeInterval?)
   case serviceUnavailable
   case responseUnavailable
   case responseFormatChanged
@@ -20,7 +20,19 @@ enum RoamieAPIError: LocalizedError {
       return "Roamie API URL is invalid."
     case .homeLocationRequired:
       return "Home location needs to be set."
-    case .rateLimited:
+    case .rateLimited(let retryAfter):
+      if let retryAfter,
+        retryAfter > 0
+      {
+        let minutes =
+          max(
+            1,
+            Int(ceil(retryAfter / 60))
+          )
+
+        return "Too many checks. Try again in about \(minutes) min."
+      }
+
       return "Too many checks. Try again in a moment."
     case .serviceUnavailable:
       return "Roamie is busy. Try again later."
@@ -73,12 +85,32 @@ struct AppleLoginResponse: Decodable {
 }
 
 struct ProfileResponse: Decodable {
+  let ageGroup: String?
+  let gender: String?
   let homeLat: Double?
   let homeLng: Double?
+  let calm: Double
+  let vivid: Double
+  let roamer: Double
+  let luxury: Double
+  let nature: Double
+  let nightlife: Double
+  let local: Double
+  let creative: Double
 
   enum CodingKeys: String, CodingKey {
+    case ageGroup = "age_group"
+    case gender
     case homeLat = "home_lat"
     case homeLng = "home_lng"
+    case calm
+    case vivid
+    case roamer
+    case luxury
+    case nature
+    case nightlife
+    case local
+    case creative
   }
 }
 
@@ -136,12 +168,14 @@ struct SimilarityRequest: Encodable {
   let homeLng: Double
   let currentLat: Double
   let currentLng: Double
+  let source: String?
 
   enum CodingKeys: String, CodingKey {
     case homeLat = "home_lat"
     case homeLng = "home_lng"
     case currentLat = "current_lat"
     case currentLng = "current_lng"
+    case source
   }
 }
 
@@ -169,18 +203,40 @@ enum SimilarityRankingPeriod: String, CaseIterable, Codable, Identifiable {
 struct SimilarityRankingItem: Decodable, Identifiable {
   let rank: Int
   let area: AreaResponse
+  let homeArea: AreaResponse?
+  let currentArea: AreaResponse?
+  let lat: Double?
+  let lng: Double?
   let averageSimilarity: Double
   let bestSimilarity: Double?
   let checkCount: Int
   let latestCheckedAt: String?
 
   var id: String {
-    "\(rank)-\(area.prefecture ?? "")-\(area.city ?? "")-\(area.district ?? "")"
+    "\(rank)-\(formatIDArea(homeArea))-\(formatIDArea(currentRankingArea))"
+  }
+
+  var currentRankingArea: AreaResponse {
+    currentArea ?? area
+  }
+
+  private func formatIDArea(
+    _ area: AreaResponse?
+  ) -> String {
+    guard let area else {
+      return ""
+    }
+
+    return "\(area.prefecture ?? "")-\(area.city ?? "")-\(area.district ?? "")"
   }
 
   enum CodingKeys: String, CodingKey {
     case rank
     case area
+    case homeArea = "home_area"
+    case currentArea = "current_area"
+    case lat
+    case lng
     case averageSimilarity = "average_similarity"
     case bestSimilarity = "best_similarity"
     case checkCount = "check_count"
@@ -266,7 +322,8 @@ final class RoamieAPI {
       homeLat: home.latitude,
       homeLng: home.longitude,
       currentLat: current.latitude,
-      currentLng: current.longitude
+      currentLng: current.longitude,
+      source: "device"
     )
 
     let body = try JSONEncoder().encode(payload)
@@ -333,6 +390,15 @@ final class RoamieAPI {
     }
 
     guard (200..<300).contains(httpResponse.statusCode) else {
+      if httpResponse.statusCode == 429 {
+        throw RoamieAPIError.rateLimited(
+          retryAfterSeconds(
+            from: httpResponse,
+            data: data
+          )
+        )
+      }
+
       throw RoamieAPIError.badStatus(httpResponse.statusCode)
     }
 
@@ -341,6 +407,63 @@ final class RoamieAPI {
     } catch {
       throw RoamieAPIError.responseFormatChanged
     }
+  }
+
+  private func retryAfterSeconds(
+    from response: HTTPURLResponse,
+    data: Data
+  ) -> TimeInterval? {
+    if let value =
+      parseRetryAfter(
+        response.value(
+          forHTTPHeaderField: "Retry-After"
+        )
+      )
+    {
+      return value
+    }
+
+    guard
+      let object =
+        try? JSONSerialization.jsonObject(
+          with: data
+        ) as? [String: Any]
+    else {
+      return nil
+    }
+
+    return parseRetryAfter(
+      object["retry_after"] ??
+      object["retry_after_seconds"]
+    )
+  }
+
+  private func parseRetryAfter(
+    _ value: Any?
+  ) -> TimeInterval? {
+    if let number = value as? NSNumber {
+      return max(0, number.doubleValue)
+    }
+
+    guard let string = value as? String,
+      !string.isEmpty
+    else {
+      return nil
+    }
+
+    if let seconds = TimeInterval(string) {
+      return max(0, seconds)
+    }
+
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.dateFormat = "EEE',' dd MMM yyyy HH':'mm':'ss z"
+
+    guard let date = formatter.date(from: string) else {
+      return nil
+    }
+
+    return max(0, date.timeIntervalSinceNow)
   }
 }
 
@@ -406,6 +529,8 @@ final class WatchRankingModel: ObservableObject {
     switch apiError {
     case .missingToken:
       return "Open Roamie on iPhone and sign in first."
+    case .rateLimited(_):
+      return apiError.localizedDescription
     case .badStatus(let status):
       if status == 401 || status == 403 {
         return "Sign in again on iPhone."

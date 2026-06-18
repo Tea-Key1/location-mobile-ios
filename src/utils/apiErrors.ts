@@ -16,10 +16,13 @@ export function formatSimilarityError(
     case 400:
     case 404:
     case 422:
-      return "Set your home location first."
+      return "Check the selected locations and try again."
 
     case 429:
-      return "Too many checks. Try again in a moment."
+      return retryMessage(
+        "Too many checks.",
+        error
+      )
 
     case 503:
       return "Roamie is busy. Try again later."
@@ -58,7 +61,10 @@ export function formatRankingError(
       return "Choose a valid period."
 
     case 429:
-      return "Too many refreshes. Try again in a moment."
+      return retryMessage(
+        "Too many refreshes.",
+        error
+      )
 
     case 503:
       return "Roamie is busy. Try again later."
@@ -79,12 +85,37 @@ export function formatRankingError(
   return "Please try again."
 }
 
+function retryMessage(
+  prefix: string,
+  error: ApiError
+): string {
+
+  if (
+    typeof error.retryAfterMs === "number" &&
+    Number.isFinite(error.retryAfterMs) &&
+    error.retryAfterMs > 0
+  ) {
+    const minutes =
+      Math.max(
+        1,
+        Math.ceil(error.retryAfterMs / 60000)
+      )
+
+    return `${prefix} Try again in about ${minutes} min.`
+  }
+
+  return `${prefix} Try again in a moment.`
+}
+
 export function hasUsableHomeLocation(
   profile: {
     home_lat?: number | null
     home_lng?: number | null
   }
-): boolean {
+): profile is {
+  home_lat: number
+  home_lng: number
+} {
 
   return typeof profile.home_lat === "number" &&
     Number.isFinite(profile.home_lat) &&

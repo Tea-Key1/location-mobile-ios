@@ -32,7 +32,7 @@ Allowed `period` values:
 
 Purpose:
 
-Return the towns or areas that best matched the signed-in user's home profile based on that user's past similarity scores within the selected period.
+Return the Home area and compared/current area pairs that best matched for the signed-in user based on that user's past similarity scores within the selected period.
 
 Expected response:
 
@@ -43,6 +43,16 @@ Expected response:
     {
       "rank": 1,
       "area": {
+        "prefecture": "東京都",
+        "city": "千代田区",
+        "district": "丸の内"
+      },
+      "home_area": {
+        "prefecture": "埼玉県",
+        "city": "吉川市",
+        "district": "南広島"
+      },
+      "current_area": {
         "prefecture": "東京都",
         "city": "千代田区",
         "district": "丸の内"
@@ -61,7 +71,11 @@ Schema requirements:
 - `period` must echo the requested period.
 - `items` must be sorted by `average_similarity` descending.
 - `rank` starts at 1.
+- Aggregate ranking rows by the combination of `home_area` and `current_area`, not by `current_area` alone.
 - `area.prefecture`, `area.city`, and `area.district` may be `null`.
+- `home_area` is the Home area used for the contributing similarity checks.
+- `current_area` is the compared/current area for the contributing similarity checks.
+- Keep `area` as a backward-compatible alias of `current_area`.
 - `average_similarity` must be a number from `0.0` to `1.0`.
 - `best_similarity` may be `null`, but should be a number from `0.0` to `1.0` when available.
 - `check_count` is the number of similarity checks contributing to that area during the period.

@@ -3,11 +3,11 @@
 import { apiFetch } from "./client"
 
 export type ProfileResponse = {
-  age_group: string
-  gender: string
+  age_group: string | null
+  gender: string | null
 
-  home_lat: number
-  home_lng: number
+  home_lat: number | null
+  home_lng: number | null
 
   calm: number
   vivid: number
@@ -19,15 +19,22 @@ export type ProfileResponse = {
   creative: number
 }
 
-export type UpdateHomeRequest = {
+export type HomeLocationRequest = {
   home_lat: number
   home_lng: number
 }
 
+export type UpdateHomeRequest =
+  HomeLocationRequest
+
 export type HomeLocationResponse = {
-  profile_completed: boolean
   profile: ProfileResponse
+  profile_completed: boolean
 }
+
+type UpdateHomeResponse =
+  | ProfileResponse
+  | HomeLocationResponse
 
 export type DeleteProfileResponse = {
   deleted: boolean
@@ -58,7 +65,28 @@ export async function getProfileCompletion(): Promise<ProfileCompletionResponse>
 }
 
 export async function updateHomeLocation(
-  payload: UpdateHomeRequest
+  payload: HomeLocationRequest
+): Promise<ProfileResponse> {
+
+  const response =
+    await apiFetch<UpdateHomeResponse>(
+    "/profiles/me",
+    {
+      method: "PATCH",
+
+      body: JSON.stringify(payload),
+    }
+  )
+
+  if (isHomeLocationResponse(response)) {
+    return response.profile
+  }
+
+  return response
+}
+
+export async function setHomeLocation(
+  payload: HomeLocationRequest
 ): Promise<HomeLocationResponse> {
 
   return await apiFetch<HomeLocationResponse>(
@@ -69,6 +97,13 @@ export async function updateHomeLocation(
       body: JSON.stringify(payload),
     }
   )
+}
+
+function isHomeLocationResponse(
+  response: UpdateHomeResponse
+): response is HomeLocationResponse {
+
+  return "profile" in response
 }
 
 export async function deleteProfile(): Promise<DeleteProfileResponse> {

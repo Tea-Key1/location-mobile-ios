@@ -6,21 +6,25 @@ import {
 
 type ApiFetchOptions = RequestInit & {
   auth?: boolean
+  suppressDevLog?: boolean
 }
 
 export class ApiError extends Error {
   status: number
   body: unknown
+  retryAfterMs?: number | null
 
   constructor(
     message: string,
     status: number,
-    body: unknown
+    body: unknown,
+    retryAfterMs?: number | null
   ) {
     super(message)
     this.name = "ApiError"
     this.status = status
     this.body = body
+    this.retryAfterMs = retryAfterMs
   }
 }
 
@@ -40,6 +44,7 @@ export async function apiFetch<T = unknown>(
 
     const {
       auth,
+      suppressDevLog,
       ...requestOptions
     } = options
 
@@ -85,20 +90,6 @@ export async function apiFetch<T = unknown>(
     )
 
     // ===============================================
-    // unauthorized
-    // ===============================================
-
-    if (response.status === 401) {
-
-      throw new ApiError(
-        "Unauthorized"
-        ,
-        response.status,
-        null
-      )
-    }
-
-    // ===============================================
     // parse json
     // ===============================================
 
@@ -121,10 +112,17 @@ export async function apiFetch<T = unknown>(
           response.status
         )
 
+      const retryAfterMs =
+        getRetryAfterMs(
+          response,
+          data
+        )
+
       throw new ApiError(
         message,
         response.status,
-        data
+        data,
+        retryAfterMs
       )
     }
 
@@ -134,6 +132,7 @@ export async function apiFetch<T = unknown>(
 
     if (
       __DEV__ &&
+      !options.suppressDevLog &&
       error instanceof ApiError
     ) {
 
@@ -153,6 +152,81 @@ export async function apiFetch<T = unknown>(
 
     throw error
   }
+}
+
+function getRetryAfterMs(
+  response: Response,
+  data: unknown
+): number | null {
+
+  const retryAfterHeader =
+    response.headers.get("Retry-After")
+
+  const headerMs =
+    parseRetryAfterValue(
+      retryAfterHeader
+    )
+
+  if (headerMs !== null) {
+    return headerMs
+  }
+
+  if (
+    data &&
+    typeof data === "object"
+  ) {
+    const retryAfter =
+      (data as {
+        retry_after?: unknown
+        retry_after_seconds?: unknown
+      }).retry_after ??
+      (data as {
+        retry_after_seconds?: unknown
+      }).retry_after_seconds
+
+    const bodyMs =
+      parseRetryAfterValue(retryAfter)
+
+    if (bodyMs !== null) {
+      return bodyMs
+    }
+  }
+
+  return null
+}
+
+function parseRetryAfterValue(
+  value: unknown
+): number | null {
+
+  if (
+    typeof value !== "string" &&
+    typeof value !== "number"
+  ) {
+    return null
+  }
+
+  const numeric =
+    typeof value === "number"
+      ? value
+      : Number(value)
+
+  if (Number.isFinite(numeric)) {
+    return Math.max(0, numeric * 1000)
+  }
+
+  if (typeof value !== "string") {
+    return null
+  }
+
+  const dateMs =
+    Date.parse(value)
+
+  if (Number.isNaN(dateMs)) {
+    return null
+  }
+
+  return Math.max(0, dateMs - Date.now())
 }
 
 function parseResponseBody(

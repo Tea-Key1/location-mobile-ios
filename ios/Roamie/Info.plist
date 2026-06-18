@@ -49,11 +49,11 @@
 	<key>NSFaceIDUsageDescription</key>
 	<string>Allow $(PRODUCT_NAME) to access your Face ID biometric data.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Roamie uses your current location to save your home area, compare nearby places, and record location history when you allow tracking.</string>
+	<string>Roamie can use your location in the background to check and save your similarity score about every 3 minutes. You can also choose areas manually from the map.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
-	<string>Roamie uses your current location to save your home area, compare nearby places, and record location history when you allow tracking.</string>
+	<string>Roamie can use your location in the background to check and save your similarity score about every 3 minutes. You can also choose areas manually from the map.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Roamie uses your current location to save your home area, compare nearby places, and record location history when you allow tracking.</string>
+	<string>Roamie uses your current location only when you choose device-location features. You can also choose areas manually from the map.</string>
 	<key>NSUserTrackingUsageDescription</key>
 	<string>Roamie would like permission to use your user ID, home area, location history, and travel mood for partner mobility insights, including sharing with data brokers.</string>
 	<key>RCTNewArchEnabled</key>
@@ -66,6 +66,10 @@
 	</array>
 	<key>UIRequiresFullScreen</key>
 	<false/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 	<key>UIStatusBarStyle</key>
 	<string>UIStatusBarStyleDefault</string>
 	<key>UISupportedInterfaceOrientations</key>

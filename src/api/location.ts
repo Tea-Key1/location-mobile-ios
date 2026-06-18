@@ -19,14 +19,14 @@ export type LocationItem = {
   id: number
   lat: number
   lng: number
-  accuracy?: number | null
+  accuracy: number | null
   timestamp: string
   s2_level12_id: string
-  commercial_tracking_allowed_at_collection?: boolean
-  tracking_consent_status_at_collection?: string | null
-  prefecture?: string | null
-  city?: string | null
-  locality?: string | null
+  prefecture: string | null
+  city: string | null
+  locality: string | null
+  commercial_tracking_allowed_at_collection: boolean
+  tracking_consent_status_at_collection: string | null
 }
 
 export type LocationListResponse = {
@@ -38,6 +38,7 @@ export type SimilarityRequest = {
   home_lng: number
   current_lat: number
   current_lng: number
+  source?: "device" | "manual" | null
 }
 
 export type SimilaritySearchRequest = {
@@ -74,10 +75,14 @@ export type SimilaritySearchResponse = {
 export type SimilarityRankingItem = {
   rank: number
   area: AreaResponse
+  home_area: AreaResponse | null
+  current_area: AreaResponse | null
+  lat: number | null
+  lng: number | null
   average_similarity: number
-  best_similarity?: number | null
+  best_similarity: number | null
   check_count: number
-  latest_checked_at?: string | null
+  latest_checked_at: string | null
 }
 
 export type SimilarityRankingResponse = {
@@ -110,13 +115,18 @@ export async function createLocation(
 }
 
 export async function getSimilarity(
-  payload: SimilarityRequest
+  payload: SimilarityRequest,
+  options: {
+    suppressDevLog?: boolean
+  } = {}
 ): Promise<SimilarityResponse> {
 
   return await apiFetch<SimilarityResponse>(
     "/similarity",
     {
       method: "POST",
+      suppressDevLog:
+        options.suppressDevLog,
 
       body: JSON.stringify(payload),
     }

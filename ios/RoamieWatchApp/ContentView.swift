@@ -226,7 +226,7 @@ struct ContentView: View {
         .frame(width: 28, alignment: .leading)
 
       VStack(alignment: .leading, spacing: 2) {
-        Text(formatArea(item.area))
+        Text(formatRankingPair(item))
           .font(.caption)
           .lineLimit(2)
 
@@ -261,6 +261,7 @@ struct ContentView: View {
     _ item: SimilarityRankingItem
   ) -> String {
     var values = [
+      "Current \(formatArea(item.currentRankingArea))",
       "\(item.checkCount) checks",
     ]
 
@@ -297,6 +298,22 @@ struct ContentView: View {
     }
 
     return String(value.prefix(10))
+  }
+
+  private func formatRankingPair(
+    _ item: SimilarityRankingItem
+  ) -> String {
+    let home =
+      item.homeArea.map(formatArea) ?? "Unknown"
+
+    let current =
+      formatArea(item.currentRankingArea)
+
+    if home == "Unknown" {
+      return current
+    }
+
+    return "\(home) -> \(current)"
   }
 
   private func formatArea(
