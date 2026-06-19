@@ -17,6 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "usesAppleSignIn": true,
+      "buildNumber": "2",
       "bundleIdentifier": "com.taikiyanada.roamie"
     },
     "android": {
