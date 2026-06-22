@@ -66,12 +66,17 @@ export default function HomeLocationScreen() {
     setSelectedHome,
   ] = useState<Coordinate | null>(null)
 
+  const [
+    showManualFallback,
+    setShowManualFallback,
+  ] = useState(false)
+
   const handleContinue = async () => {
 
     if (!selectedHome) {
       Alert.alert(
         "Choose a home area",
-        "Tap the map to choose your home area, or use your current location."
+        "Tap the map to choose your home area."
       )
 
       return
@@ -138,41 +143,16 @@ export default function HomeLocationScreen() {
         error
       )
 
+      setShowManualFallback(true)
+
       Alert.alert(
-        "Location unavailable",
-        error instanceof Error
-          ? error.message
-          : "Could not save your home location."
+        "Choose your home area",
+        "Select your home area from the map to continue."
       )
 
     } finally {
 
       setRequestingConsent(false)
-    }
-  }
-
-  const handleSkip = async () => {
-
-    try {
-
-      setSaving(true)
-
-      await submitProfile()
-
-    } catch (error) {
-
-      console.log(
-        "submit onboarding without location error:",
-        error
-      )
-
-      navigation.navigate(
-        "Complete"
-      )
-
-    } finally {
-
-      setSaving(false)
     }
   }
 
@@ -264,11 +244,30 @@ export default function HomeLocationScreen() {
     )
   }
 
+  if (!showManualFallback) {
+    return (
+      <ScreenShell
+        eyebrow="Step 5"
+        title="See your compatibility with nearby places"
+        subtitle="Roamie uses your location to show nearby places and compare them with your saved home area."
+      >
+        <View style={styles.buttonWrap}>
+          <PrimaryButton
+            title="Continue"
+            loading={requestingConsent}
+            disabled={saving || requestingConsent}
+            onPress={handleUseCurrentLocation}
+          />
+        </View>
+      </ScreenShell>
+    )
+  }
+
   return (
     <ScreenShell
       eyebrow="Step 5"
       title="Set your home area"
-      subtitle="Choose anywhere in Japan from the map. Location Services are only needed if you use your device location."
+      subtitle="Choose anywhere in Japan from the map."
       scroll
     >
       <JapanMapPicker
@@ -284,25 +283,6 @@ export default function HomeLocationScreen() {
           loading={saving}
           disabled={!selectedHome || saving || requestingConsent}
           onPress={handleContinue}
-        />
-      </View>
-
-      <View style={styles.secondaryButtonWrap}>
-        <PrimaryButton
-          title="Use current location"
-          variant="outline"
-          disabled={saving || requestingConsent}
-          loading={requestingConsent}
-          onPress={handleUseCurrentLocation}
-        />
-      </View>
-
-      <View style={styles.secondaryButtonWrap}>
-        <PrimaryButton
-          title="Skip for now"
-          variant="outline"
-          disabled={saving || requestingConsent}
-          onPress={handleSkip}
         />
       </View>
 
@@ -371,9 +351,6 @@ function normalizeScore(
 const styles = StyleSheet.create({
   buttonWrap: {
     marginTop: 22,
-  },
-  secondaryButtonWrap: {
-    marginTop: 12,
   },
   caption: {
     marginTop: 15,

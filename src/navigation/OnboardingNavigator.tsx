@@ -79,6 +79,9 @@ export default function OnboardingNavigator({
         component={
           HomeLocationScreen
         }
+        options={{
+          gestureEnabled: false,
+        }}
       />
 
       <Stack.Screen

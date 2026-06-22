@@ -34,8 +34,8 @@
         "expo-location",
         {
           "isIosBackgroundLocationEnabled": true,
-          "locationAlwaysAndWhenInUsePermission": "Roamie can use your location in the background to check and save your similarity score about every 3 minutes. You can also choose areas manually from the map.",
-          "locationWhenInUsePermission": "Roamie uses your current location only when you choose device-location features. You can also choose areas manually from the map."
+          "locationAlwaysAndWhenInUsePermission": "Roamie can use your location in the background to update nearby place compatibility while you are away from the app. For example, Roamie may periodically compare your current area with your saved home area to refresh compatibility scores.",
+          "locationWhenInUsePermission": "Roamie uses your location while you are using the app to show your compatibility with nearby places and compare them with your saved home area. For example, your current area may be used to display nearby place recommendations and area compatibility scores."
         }
       ],
       [

@@ -39,7 +39,7 @@
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Roamie uses your current location to compare nearby places from your wrist.</string>
+	<string>Roamie uses your location while you are using the watch app to show your compatibility with nearby places and compare them with your saved home area. For example, your current area may be used to display nearby place recommendations and area compatibility scores.</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>WKApplication</key>
