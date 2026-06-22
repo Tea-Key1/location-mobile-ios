@@ -12,3 +12,7 @@ Configure GitHub Pages with:
 The support page should be available at:
 
 https://tea-key1.github.io/location-mobile-ios/support.html
+
+The privacy policy page should be available at:
+
+https://tea-key1.github.io/location-mobile-ios/policy.html
