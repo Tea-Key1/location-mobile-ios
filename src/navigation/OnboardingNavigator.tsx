@@ -72,6 +72,9 @@ export default function OnboardingNavigator({
         component={
           TrackingConsentScreen
         }
+        options={{
+          gestureEnabled: false,
+        }}
       />
 
       <Stack.Screen

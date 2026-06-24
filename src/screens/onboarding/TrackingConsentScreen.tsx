@@ -1,4 +1,6 @@
 import {
+  useEffect,
+  useRef,
   useState,
 } from "react"
 
@@ -33,6 +35,9 @@ export default function TrackingConsentScreen() {
 
   const route = useRoute<any>()
 
+  const allowNavigationRef =
+    useRef(false)
+
   const [
     requesting,
     setRequesting,
@@ -40,7 +45,9 @@ export default function TrackingConsentScreen() {
 
   const goNext = () => {
 
-    navigation.navigate(
+    allowNavigationRef.current = true
+
+    navigation.replace(
       "HomeLocation",
       route.params
     )
@@ -62,24 +69,40 @@ export default function TrackingConsentScreen() {
     }
   }
 
+  useEffect(() => {
+
+    const unsubscribe =
+      navigation.addListener(
+        "beforeRemove",
+        (event: any) => {
+
+          if (allowNavigationRef.current) {
+            return
+          }
+
+          event.preventDefault()
+        }
+      )
+
+    return unsubscribe
+  }, [
+    navigation,
+  ])
+
   return (
     <ScreenShell
       eyebrow="Step 4"
-      title="Choose data sharing"
-      subtitle="This is optional. Your answer will not block the main Roamie experience."
+      title="Partner mobility insights"
+      subtitle="Roamie will show Apple's App Tracking Transparency request next."
       scroll
     >
       <View style={styles.panel}>
         <Text style={styles.panelTitle}>
-          Partner mobility insights
+          Apple tracking permission
         </Text>
 
         <Text style={styles.panelText}>
-          If you allow tracking, Roamie may use your user ID, home area, location history, and travel mood to create and share mobility insights with partners, including data brokers.
-        </Text>
-
-        <Text style={styles.panelText}>
-          If you decline, Roamie can still save your home area and compare nearby places for app functionality, but your data will not be used for partner mobility insight sharing.
+          Roamie uses your Apple ATT choice to decide whether your user ID, home area, location history, and travel mood may be used for partner mobility insights, including sharing with data brokers.
         </Text>
       </View>
 
