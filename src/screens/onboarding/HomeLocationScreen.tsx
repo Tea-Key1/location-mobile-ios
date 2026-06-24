@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useState,
 } from "react"
 
@@ -10,6 +11,7 @@ import {
 } from "react-native"
 
 import {
+  useFocusEffect,
   useNavigation,
   useRoute,
 } from "@react-navigation/native"
@@ -17,33 +19,25 @@ import {
 import PrimaryButton
 from "../../components/common/PrimaryButton"
 
-import JapanMapPicker
-from "../../components/common/JapanMapPicker"
-
 import ScreenShell
 from "../../components/common/ScreenShell"
 
 import {
-  submitOnboarding,
-} from "../../api/onboarding"
-
-import {
   getCurrentLocation,
+  hasForegroundLocationPermission,
   isJapanAdministrativeCoordinate,
 } from "../../utils/location"
 
 import {
-  AgeRange,
-  Gender,
-} from "../../types/profile"
-
-import {
-  Coordinate,
-} from "../../types/location"
-
-import {
   design,
 } from "../../styles/design"
+
+import ChoiceCard
+from "../../components/common/ChoiceCard"
+
+import {
+  submitHomeLocationOnboarding,
+} from "./homeLocationSubmission"
 
 export default function HomeLocationScreen() {
 
@@ -57,65 +51,44 @@ export default function HomeLocationScreen() {
   ] = useState(false)
 
   const [
-    requestingConsent,
-    setRequestingConsent,
+    hasLocationPermission,
+    setHasLocationPermission,
   ] = useState(false)
 
-  const [
-    selectedHome,
-    setSelectedHome,
-  ] = useState<Coordinate | null>(null)
+  useFocusEffect(
+    useCallback(() => {
+      let active = true
 
-  const [
-    showManualFallback,
-    setShowManualFallback,
-  ] = useState(false)
+      hasForegroundLocationPermission()
+        .then((permitted) => {
+          if (active) {
+            setHasLocationPermission(
+              permitted
+            )
+          }
+        })
+        .catch((error) => {
+          console.log(
+            "check location permission error:",
+            error
+          )
 
-  const handleContinue = async () => {
+          if (active) {
+            setHasLocationPermission(false)
+          }
+        })
 
-    if (!selectedHome) {
-      Alert.alert(
-        "Choose a home area",
-        "Tap the map to choose your home area."
-      )
-
-      return
-    }
-
-    try {
-
-      setSaving(true)
-
-      await submitProfile(
-        selectedHome.lat,
-        selectedHome.lng
-      )
-
-    } catch (error) {
-
-      console.log(
-        "submit selected home error:",
-        error
-      )
-
-      Alert.alert(
-        "Could not save home",
-        error instanceof Error
-          ? error.message
-          : "Please try again."
-      )
-
-    } finally {
-
-      setSaving(false)
-    }
-  }
+      return () => {
+        active = false
+      }
+    }, [])
+  )
 
   const handleUseCurrentLocation = async () => {
 
     try {
 
-      setRequestingConsent(true)
+      setSaving(true)
 
       const currentLocation =
         await getCurrentLocation()
@@ -131,9 +104,13 @@ export default function HomeLocationScreen() {
         )
       }
 
-      await submitProfile(
-        currentLocation.coordinate.lat,
-        currentLocation.coordinate.lng
+      await submitHomeLocationOnboarding(
+        route.params,
+        currentLocation.coordinate
+      )
+
+      navigation.navigate(
+        "Complete"
       )
 
     } catch (error) {
@@ -143,123 +120,26 @@ export default function HomeLocationScreen() {
         error
       )
 
-      setShowManualFallback(true)
-
       Alert.alert(
         "Choose your home area",
         "Select your home area from the map to continue."
       )
 
+      navigation.navigate(
+        "HomeLocationManual",
+        route.params
+      )
+
     } finally {
 
-      setRequestingConsent(false)
+      setSaving(false)
     }
   }
 
-  const submitProfile = async (
-    homeLat?: number,
-    homeLng?: number
-  ) => {
-
-    const ageGroup =
-      parseAgeGroup(
-        route.params?.age_group
-      )
-
-    const gender =
-      parseGender(
-        route.params?.gender
-      )
-
-    if (!ageGroup || !gender) {
-      throw new Error(
-        "Onboarding information is incomplete."
-      )
-    }
-
-    const homePayload =
-      typeof homeLat === "number" &&
-      typeof homeLng === "number"
-        ? {
-          home_lat:
-            homeLat,
-
-          home_lng:
-            homeLng,
-        }
-        : {}
-
-    await submitOnboarding({
-      age_group:
-        ageGroup,
-
-      gender:
-        gender,
-
-      ...homePayload,
-
-      calm:
-        normalizeScore(
-          route.params?.calm
-        ),
-
-      vivid:
-        normalizeScore(
-          route.params?.vivid
-        ),
-
-      roamer:
-        normalizeScore(
-          route.params?.roamer
-        ),
-
-      luxury:
-        normalizeScore(
-          route.params?.luxury
-        ),
-
-      nature:
-        normalizeScore(
-          route.params?.nature
-        ),
-
-      nightlife:
-        normalizeScore(
-          route.params?.nightlife
-        ),
-
-      local:
-        normalizeScore(
-          route.params?.local
-        ),
-
-      creative:
-        normalizeScore(
-          route.params?.creative
-        ),
-    })
-
+  const handleSelectManually = () => {
     navigation.navigate(
-      "Complete"
-    )
-  }
-
-  if (!showManualFallback) {
-    return (
-      <ScreenShell
-        eyebrow="Step 5"
-        title="See your compatibility with nearby places"
-        subtitle="Roamie uses your location to show nearby places and compare them with your saved home area."
-      >
-        <View style={styles.buttonWrap}>
-          <PrimaryButton
-            title="Continue"
-            loading={requestingConsent}
-            disabled={saving || requestingConsent}
-            onPress={handleUseCurrentLocation}
-          />
-        </View>
-      </ScreenShell>
+      "HomeLocationManual",
+      route.params
     )
   }
 
@@ -267,22 +147,25 @@ export default function HomeLocationScreen() {
     <ScreenShell
       eyebrow="Step 5"
       title="Set your home area"
-      subtitle="Choose anywhere in Japan from the map."
-      scroll
+      subtitle="Choose your home area so Roamie can compare nearby places with the area that matters to you."
     >
-      <JapanMapPicker
-        title="Home area"
-        value={selectedHome}
-        markerTitle="Home area"
-        onChange={setSelectedHome}
-      />
+      {hasLocationPermission ? (
+        <View style={styles.buttonWrap}>
+          <PrimaryButton
+            title="Use device location"
+            loading={saving}
+            disabled={saving}
+            onPress={handleUseCurrentLocation}
+          />
+        </View>
+      ) : null}
 
-      <View style={styles.buttonWrap}>
-        <PrimaryButton
-          title="Use selected area"
-          loading={saving}
-          disabled={!selectedHome || saving || requestingConsent}
-          onPress={handleContinue}
+      <View style={styles.options}>
+        <ChoiceCard
+          title="Select manually"
+          detail="Open the Japan map and tap your home area."
+          tone="blue"
+          onPress={handleSelectManually}
         />
       </View>
 
@@ -293,69 +176,18 @@ export default function HomeLocationScreen() {
   )
 }
 
-function parseAgeGroup(
-  value: unknown
-): AgeRange | null {
-
-  const values: AgeRange[] = [
-    "10s",
-    "20s",
-    "30s",
-    "40s",
-    "50s",
-    "60s",
-    "70s+",
-  ]
-
-  return values.includes(
-    value as AgeRange
-  )
-    ? value as AgeRange
-    : null
-}
-
-function parseGender(
-  value: unknown
-): Gender | null {
-
-  const values: Gender[] = [
-    "male",
-    "female",
-    "other",
-  ]
-
-  return values.includes(
-    value as Gender
-  )
-    ? value as Gender
-    : null
-}
-
-function normalizeScore(
-  value: unknown
-): number {
-
-  if (typeof value !== "number") {
-    return 0
-  }
-
-  return Math.min(
-    1,
-    Math.max(
-      0,
-      value
-    )
-  )
-}
-
 const styles = StyleSheet.create({
+  options: {
+    marginTop: 12,
+  },
   buttonWrap: {
-    marginTop: 22,
+    marginTop: 2,
   },
   caption: {
     marginTop: 15,
     color: design.colors.faint,
     fontSize: 13,
+    lineHeight: 18,
     textAlign: "center",
   },
 })

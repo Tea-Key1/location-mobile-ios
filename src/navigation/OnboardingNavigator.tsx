@@ -22,6 +22,9 @@ from "../screens/onboarding/TrackingConsentScreen"
 import HomeLocationScreen
 from "../screens/onboarding/HomeLocationScreen"
 
+import HomeLocationManualScreen
+from "../screens/onboarding/HomeLocationManualScreen"
+
 import CompleteScreen
 from "../screens/onboarding/CompleteScreen"
 
@@ -84,6 +87,16 @@ export default function OnboardingNavigator({
         }
         options={{
           gestureEnabled: false,
+        }}
+      />
+
+      <Stack.Screen
+        name="HomeLocationManual"
+        component={
+          HomeLocationManualScreen
+        }
+        options={{
+          gestureEnabled: true,
         }}
       />
 

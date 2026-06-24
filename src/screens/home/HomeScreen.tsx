@@ -11,8 +11,12 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native"
+
+import Ionicons
+from "@expo/vector-icons/Ionicons"
 
 import {
   SafeAreaView,
@@ -380,6 +384,7 @@ export default function HomeScreen({
       )
 
       setCurrentPickerVisible(false)
+      setManualCurrentPlace(null)
 
     } catch (error) {
 
@@ -424,6 +429,7 @@ export default function HomeScreen({
           )
 
           setCurrentPickerVisible(false)
+          setManualCurrentPlace(null)
 
           return
         }
@@ -491,6 +497,7 @@ export default function HomeScreen({
       }
 
       setHomePickerVisible(true)
+      setCurrentPickerVisible(false)
 
       Alert.alert(
         "Could not use device location",
@@ -548,6 +555,24 @@ export default function HomeScreen({
 
       setSavingHome(false)
     }
+  }
+
+  const handleOpenCurrentPicker = () => {
+    setHomePickerVisible(false)
+    setCurrentPickerVisible(true)
+  }
+
+  const handleOpenHomePicker = () => {
+    setCurrentPickerVisible(false)
+    setHomePickerVisible(true)
+  }
+
+  const handleCloseCurrentPicker = () => {
+    setCurrentPickerVisible(false)
+  }
+
+  const handleCloseHomePicker = () => {
+    setHomePickerVisible(false)
   }
 
   const saveHomeLocation = async (
@@ -653,6 +678,44 @@ export default function HomeScreen({
       {}
     )
 
+  if (currentPickerVisible) {
+    return (
+      <FullScreenMapPicker
+        eyebrow="Compare"
+        title="Choose place"
+        subtitle="Tap a land area in Japan to compare it with Home."
+        mapTitle="Japan map"
+        value={manualCurrentPlace}
+        markerTitle="Selected place"
+        actionTitle="Check selected place"
+        loading={loading}
+        disabled={!manualCurrentPlace || loading}
+        onBack={handleCloseCurrentPicker}
+        onChange={setManualCurrentPlace}
+        onSubmit={handleCheckManualLocation}
+      />
+    )
+  }
+
+  if (homePickerVisible) {
+    return (
+      <FullScreenMapPicker
+        eyebrow="Home"
+        title="Choose Home"
+        subtitle="Tap a land area in Japan to save it as Home."
+        mapTitle="Japan map"
+        value={manualHomePlace}
+        markerTitle="Home"
+        actionTitle="Save Home"
+        loading={savingHome}
+        disabled={!manualHomePlace || savingHome || homeUpdateLocked}
+        onBack={handleCloseHomePicker}
+        onChange={setManualHomePlace}
+        onSubmit={handleSaveManualHome}
+      />
+    )
+  }
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView
@@ -755,35 +818,8 @@ export default function HomeScreen({
               !homeStatusLoaded ||
               !hasHomeLocation
             }
-            onPress={() => {
-              setCurrentPickerVisible(true)
-            }}
+            onPress={handleOpenCurrentPicker}
           />
-
-          {currentPickerVisible ? (
-            <View style={styles.currentPicker}>
-              <JapanMapPicker
-                title="Choose place"
-                value={manualCurrentPlace}
-                markerTitle="Selected place"
-                onChange={setManualCurrentPlace}
-                helperText={
-                  manualCurrentPlace
-                    ? undefined
-                    : "Tap a land area in Japan to compare with Home."
-                }
-              />
-
-              <View style={styles.currentPickerActions}>
-                <PrimaryButton
-                  title="Check selected place"
-                  loading={loading}
-                  disabled={!manualCurrentPlace || loading}
-                  onPress={handleCheckManualLocation}
-                />
-              </View>
-            </View>
-          ) : null}
         </View>
 
         <View style={styles.placeCard}>
@@ -850,38 +886,98 @@ export default function HomeScreen({
               title="Choose Home manually"
               variant="outline"
               disabled={savingHome || homeUpdateLocked}
-              onPress={() => {
-                setHomePickerVisible(true)
-              }}
+              onPress={handleOpenHomePicker}
             />
           </View>
-
-          {homePickerVisible ? (
-            <View style={styles.homePicker}>
-              <JapanMapPicker
-                title="Choose Home"
-                value={manualHomePlace}
-                markerTitle="Home"
-                onChange={setManualHomePlace}
-                helperText={
-                  manualHomePlace
-                    ? undefined
-                    : "Tap a land area in Japan to set Home."
-                }
-              />
-
-              <View style={styles.homePickerActions}>
-                <PrimaryButton
-                  title="Save Home"
-                  loading={savingHome}
-                  disabled={!manualHomePlace || savingHome || homeUpdateLocked}
-                  onPress={handleSaveManualHome}
-                />
-              </View>
-            </View>
-          ) : null}
         </View>
       </ScrollView>
+    </SafeAreaView>
+  )
+}
+
+function FullScreenMapPicker({
+  eyebrow,
+  title,
+  subtitle,
+  mapTitle,
+  value,
+  markerTitle,
+  actionTitle,
+  loading,
+  disabled,
+  onBack,
+  onChange,
+  onSubmit,
+}: {
+  eyebrow: string
+  title: string
+  subtitle: string
+  mapTitle: string
+  value: Coordinate | null
+  markerTitle: string
+  actionTitle: string
+  loading: boolean
+  disabled: boolean
+  onBack: () => void
+  onChange: (coordinate: Coordinate) => void
+  onSubmit: () => void
+}) {
+
+  return (
+    <SafeAreaView style={styles.fullScreenSafe}>
+      <View style={styles.fullScreenHeader}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          activeOpacity={0.78}
+          style={styles.backButton}
+          onPress={onBack}
+        >
+          <Ionicons
+            name="chevron-back"
+            size={24}
+            color={design.colors.ink}
+          />
+        </TouchableOpacity>
+
+        <View style={styles.fullScreenHeaderCopy}>
+          <Text style={styles.fullScreenEyebrow}>
+            {eyebrow}
+          </Text>
+
+          <Text style={styles.fullScreenTitle}>
+            {title}
+          </Text>
+
+          <Text style={styles.fullScreenSubtitle}>
+            {subtitle}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.fullScreenMapWrap}>
+        <JapanMapPicker
+          title={mapTitle}
+          value={value}
+          markerTitle={markerTitle}
+          helperText={
+            value
+              ? "Selected. You can tap another area to change it."
+              : "Tap the map to choose an area."
+          }
+          onChange={onChange}
+          fullScreen
+        />
+      </View>
+
+      <View style={styles.fullScreenFooter}>
+        <PrimaryButton
+          title={actionTitle}
+          loading={loading}
+          disabled={disabled}
+          onPress={onSubmit}
+        />
+      </View>
     </SafeAreaView>
   )
 }
@@ -1284,18 +1380,6 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 14,
   },
-  homePicker: {
-    marginTop: 14,
-  },
-  homePickerActions: {
-    marginTop: 12,
-  },
-  currentPicker: {
-    marginTop: 2,
-  },
-  currentPickerActions: {
-    marginTop: 12,
-  },
   scoreRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1384,5 +1468,63 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     textAlign: "center",
+  },
+  fullScreenSafe: {
+    flex: 1,
+    backgroundColor: design.colors.paper,
+  },
+  fullScreenHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+    backgroundColor: design.colors.surface,
+    borderWidth: 1,
+    borderColor: design.colors.softLine,
+  },
+  fullScreenHeaderCopy: {
+    flex: 1,
+    paddingTop: 1,
+  },
+  fullScreenEyebrow: {
+    color: design.colors.green,
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  fullScreenTitle: {
+    color: design.colors.ink,
+    fontSize: 25,
+    lineHeight: 30,
+    fontWeight: "800",
+  },
+  fullScreenSubtitle: {
+    color: design.colors.muted,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 4,
+  },
+  fullScreenMapWrap: {
+    flex: 1,
+    minHeight: 300,
+  },
+  fullScreenFooter: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
+    borderTopWidth: 1,
+    borderTopColor: design.colors.softLine,
+    backgroundColor: design.colors.paper,
   },
 })

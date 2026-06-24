@@ -49,6 +49,7 @@ type Props = {
   markerTitle?: string
   helperText?: string
   extraMarkers?: JapanMapMarker[]
+  fullScreen?: boolean
 }
 
 export default function JapanMapPicker({
@@ -58,6 +59,7 @@ export default function JapanMapPicker({
   markerTitle = "Selected area",
   helperText,
   extraMarkers = [],
+  fullScreen = false,
 }: Props) {
 
   const [
@@ -120,7 +122,12 @@ export default function JapanMapPicker({
   }
 
   return (
-    <View style={styles.wrap}>
+    <View
+      style={[
+        styles.wrap,
+        fullScreen && styles.fullScreenWrap,
+      ]}
+    >
       <View style={styles.header}>
         <Text style={styles.title}>
           {title}
@@ -137,7 +144,10 @@ export default function JapanMapPicker({
       </View>
 
       <MapView
-        style={styles.map}
+        style={[
+          styles.map,
+          fullScreen && styles.fullScreenMap,
+        ]}
         initialRegion={JAPAN_REGION}
         zoomEnabled
         scrollEnabled
@@ -193,6 +203,14 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     ...design.shadow,
   },
+  fullScreenWrap: {
+    flex: 1,
+    borderRadius: 0,
+    borderWidth: 0,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+  },
   header: {
     paddingHorizontal: 14,
     paddingTop: 13,
@@ -213,5 +231,9 @@ const styles = StyleSheet.create({
   map: {
     height: 230,
     width: "100%",
+  },
+  fullScreenMap: {
+    flex: 1,
+    height: undefined,
   },
 })

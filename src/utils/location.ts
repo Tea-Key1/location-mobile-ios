@@ -24,6 +24,15 @@ export async function requestLocationPermission(): Promise<void> {
   }
 }
 
+export async function hasForegroundLocationPermission():
+  Promise<boolean> {
+
+  const { status } =
+    await Location.getForegroundPermissionsAsync()
+
+  return status === "granted"
+}
+
 export async function getCurrentLocation(): Promise<CurrentLocation> {
 
   // 権限確認

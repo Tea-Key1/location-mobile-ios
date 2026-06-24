@@ -26,6 +26,10 @@ import {
 } from "../../utils/trackingConsent"
 
 import {
+  requestLocationPermission,
+} from "../../utils/location"
+
+import {
   design,
 } from "../../styles/design"
 
@@ -61,6 +65,15 @@ export default function TrackingConsentScreen() {
 
       await requestCommercialTrackingConsent()
 
+      try {
+        await requestLocationPermission()
+      } catch (error) {
+        console.log(
+          "request onboarding location permission error:",
+          error
+        )
+      }
+
       goNext()
 
     } finally {
@@ -92,17 +105,17 @@ export default function TrackingConsentScreen() {
   return (
     <ScreenShell
       eyebrow="Step 4"
-      title="Partner mobility insights"
-      subtitle="Roamie will show Apple's App Tracking Transparency request next."
+      title="Permissions"
+      subtitle="Roamie will ask for Apple tracking permission and location permission next."
       scroll
     >
       <View style={styles.panel}>
         <Text style={styles.panelTitle}>
-          Apple tracking permission
+          Apple tracking and location
         </Text>
 
         <Text style={styles.panelText}>
-          Roamie uses your Apple ATT choice to decide whether your user ID, home area, location history, and travel mood may be used for partner mobility insights, including sharing with data brokers.
+          Roamie uses your Apple ATT choice for partner mobility insights. Location permission lets you set Home with your device location and compare nearby places. You can still select areas manually if you do not allow location access.
         </Text>
       </View>
 
