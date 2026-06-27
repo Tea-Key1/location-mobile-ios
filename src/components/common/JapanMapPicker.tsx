@@ -2,6 +2,9 @@ import {
   useState,
 } from "react"
 
+import Ionicons
+from "@expo/vector-icons/Ionicons"
+
 import {
   Alert,
   StyleSheet,
@@ -46,20 +49,24 @@ type Props = {
   title: string
   value: Coordinate | null
   onChange?: (coordinate: Coordinate) => void
+  onCenterChange?: (coordinate: Coordinate) => void
   markerTitle?: string
   helperText?: string
   extraMarkers?: JapanMapMarker[]
   fullScreen?: boolean
+  selectionMode?: "tap" | "center"
 }
 
 export default function JapanMapPicker({
   title,
   value,
   onChange,
+  onCenterChange,
   markerTitle = "Selected area",
   helperText,
   extraMarkers = [],
   fullScreen = false,
+  selectionMode = "tap",
 }: Props) {
 
   const [
@@ -67,11 +74,18 @@ export default function JapanMapPicker({
     setValidating,
   ] = useState(false)
 
+  const isCenterSelection =
+    selectionMode === "center"
+
   const handlePress = async (
     event: MapPressEvent
   ) => {
 
-    if (!onChange || validating) {
+    if (
+      !onChange ||
+      validating ||
+      isCenterSelection
+    ) {
       return
     }
 
@@ -121,6 +135,23 @@ export default function JapanMapPicker({
     }
   }
 
+  const handleRegionChangeComplete = (
+    region: Region
+  ) => {
+
+    if (!isCenterSelection) {
+      return
+    }
+
+    onCenterChange?.({
+      lat:
+        region.latitude,
+
+      lng:
+        region.longitude,
+    })
+  }
+
   return (
     <View
       style={[
@@ -138,51 +169,84 @@ export default function JapanMapPicker({
             (value
               ? formatCoordinate(value)
               : onChange
-                ? "Tap the map to choose an area."
+                ? isCenterSelection
+                  ? "Move the map to place the area under the center pin."
+                  : "Tap the map to choose an area."
                 : "Move and zoom the map.")}
         </Text>
       </View>
 
-      <MapView
+      <View
         style={[
-          styles.map,
-          fullScreen && styles.fullScreenMap,
+          styles.mapFrame,
+          fullScreen && styles.fullScreenMapFrame,
         ]}
-        initialRegion={JAPAN_REGION}
-        zoomEnabled
-        scrollEnabled
-        rotateEnabled
-        pitchEnabled
-        onPress={onChange ? handlePress : undefined}
       >
-        {extraMarkers.map((marker) => (
-          <Marker
-            key={marker.id}
-            title={marker.title}
-            description={marker.description}
-            pinColor={marker.pinColor}
-            coordinate={{
-              latitude:
-                marker.coordinate.lat,
-              longitude:
-                marker.coordinate.lng,
-            }}
-          />
-        ))}
+        <MapView
+          style={[
+            styles.map,
+            fullScreen && styles.fullScreenMap,
+          ]}
+          initialRegion={JAPAN_REGION}
+          zoomEnabled
+          scrollEnabled
+          rotateEnabled
+          pitchEnabled
+          onPress={
+            onChange && !isCenterSelection
+              ? handlePress
+              : undefined
+          }
+          onRegionChangeComplete={
+            isCenterSelection
+              ? handleRegionChangeComplete
+              : undefined
+          }
+        >
+          {extraMarkers.map((marker) => (
+            <Marker
+              key={marker.id}
+              title={marker.title}
+              description={marker.description}
+              pinColor={marker.pinColor}
+              coordinate={{
+                latitude:
+                  marker.coordinate.lat,
+                longitude:
+                  marker.coordinate.lng,
+              }}
+            />
+          ))}
 
-        {value ? (
-          <Marker
-            title={markerTitle}
-            pinColor={design.colors.green}
-            coordinate={{
-              latitude:
-                value.lat,
-              longitude:
-                value.lng,
-            }}
-          />
+          {value && !isCenterSelection ? (
+            <Marker
+              title={markerTitle}
+              pinColor={design.colors.green}
+              coordinate={{
+                latitude:
+                  value.lat,
+                longitude:
+                  value.lng,
+              }}
+            />
+          ) : null}
+        </MapView>
+
+        {isCenterSelection ? (
+          <View
+            pointerEvents="none"
+            style={styles.centerPinWrap}
+          >
+            <View style={styles.centerPin}>
+              <Ionicons
+                name="location-sharp"
+                size={38}
+                color={design.colors.greenDark}
+              />
+            </View>
+          </View>
         ) : null}
-      </MapView>
+      </View>
     </View>
   )
 }
@@ -228,6 +292,12 @@ const styles = StyleSheet.create({
     color: design.colors.muted,
     fontSize: 12,
   },
+  mapFrame: {
+    position: "relative",
+  },
+  fullScreenMapFrame: {
+    flex: 1,
+  },
   map: {
     height: 230,
     width: "100%",
@@ -235,5 +305,34 @@ const styles = StyleSheet.create({
   fullScreenMap: {
     flex: 1,
     height: undefined,
+  },
+  centerPinWrap: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    width: 52,
+    height: 52,
+    marginLeft: -26,
+    marginTop: -45,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  centerPin: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "rgba(255, 255, 255, 0.92)",
+    borderWidth: 1,
+    borderColor: design.colors.softLine,
+    shadowColor: design.colors.ink,
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+    shadowOpacity: 0.16,
+    shadowRadius: 10,
+    elevation: 4,
   },
 })

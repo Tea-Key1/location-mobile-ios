@@ -48,6 +48,7 @@ import {
 
 import {
   getCurrentLocation,
+  hasForegroundLocationPermission,
   isJapanAdministrativeCoordinate,
   reverseGeocode,
 } from "../../utils/location"
@@ -75,6 +76,11 @@ const SIMILARITY_CACHE_MS =
 
 const RATE_LIMIT_COOLDOWN_MS =
   3 * 60 * 1000
+
+const INITIAL_MAP_CENTER: Coordinate = {
+  lat: 36.2048,
+  lng: 138.2529,
+}
 
 type CachedSimilarity = {
   homeLat: number
@@ -162,6 +168,11 @@ export default function HomeScreen({
     setSavingHome,
   ] = useState(false)
 
+  const [
+    hasLocationPermission,
+    setHasLocationPermission,
+  ] = useState(false)
+
   const cacheRef =
     useRef<CachedSimilarity | null>(null)
 
@@ -172,12 +183,58 @@ export default function HomeScreen({
       !canUpdateHomeToday
     )
 
+  const refreshLocationPermission = async () => {
+
+    try {
+
+      const permitted =
+        await hasForegroundLocationPermission()
+
+      setHasLocationPermission(permitted)
+
+    } catch (error) {
+
+      console.log(
+        "check home location permission error:",
+        error
+      )
+
+      setHasLocationPermission(false)
+    }
+  }
+
   useEffect(() => {
 
     if (hasHomeLocation) {
       setHomePickerVisible(false)
     }
   }, [hasHomeLocation])
+
+  useEffect(() => {
+
+    let mounted = true
+
+    hasForegroundLocationPermission()
+      .then((permitted) => {
+        if (mounted) {
+          setHasLocationPermission(permitted)
+        }
+      })
+      .catch((error) => {
+        console.log(
+          "check home location permission error:",
+          error
+        )
+
+        if (mounted) {
+          setHasLocationPermission(false)
+        }
+      })
+
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   const handleCheckDeviceLocation = async () => {
 
@@ -212,6 +269,8 @@ export default function HomeScreen({
 
       const currentLocation =
         await getCurrentLocation()
+
+      setHasLocationPermission(true)
 
       const valid =
         await isJapanAdministrativeCoordinate(
@@ -254,6 +313,8 @@ export default function HomeScreen({
         "check device similarity error:",
         error
       )
+
+      void refreshLocationPermission()
 
       if (
         error instanceof ApiError &&
@@ -327,18 +388,12 @@ export default function HomeScreen({
       return
     }
 
-    if (!manualCurrentPlace) {
-      Alert.alert(
-        "Choose a place",
-        "Tap the map to choose the area you want to compare with Home."
-      )
-
-      return
-    }
-
     try {
 
       setLoading(true)
+
+      const selectedPlace =
+        manualCurrentPlace ?? INITIAL_MAP_CENTER
 
       const profile =
         await getMyProfile()
@@ -351,7 +406,7 @@ export default function HomeScreen({
 
       const valid =
         await isJapanAdministrativeCoordinate(
-          manualCurrentPlace
+          selectedPlace
         )
 
       if (!valid) {
@@ -366,9 +421,9 @@ export default function HomeScreen({
         homeLng:
           profile.home_lng,
         currentLat:
-          manualCurrentPlace.lat,
+          selectedPlace.lat,
         currentLng:
-          manualCurrentPlace.lng,
+          selectedPlace.lng,
       }
 
       await submitSimilarity(
@@ -380,7 +435,7 @@ export default function HomeScreen({
       )
 
       setLastPlace(
-        manualCurrentPlace
+        selectedPlace
       )
 
       setCurrentPickerVisible(false)
@@ -465,6 +520,8 @@ export default function HomeScreen({
       const currentLocation =
         await getCurrentLocation()
 
+      setHasLocationPermission(true)
+
       const valid =
         await isJapanAdministrativeCoordinate(
           currentLocation.coordinate
@@ -486,6 +543,8 @@ export default function HomeScreen({
         "set home from device error:",
         error
       )
+
+      void refreshLocationPermission()
 
       if (error instanceof ApiError) {
         Alert.alert(
@@ -520,21 +579,26 @@ export default function HomeScreen({
       return
     }
 
-    if (!manualHomePlace) {
-      Alert.alert(
-        "Choose a home area",
-        "Tap the map to choose the area you want to save as Home."
-      )
-
-      return
-    }
-
     try {
 
       setSavingHome(true)
 
+      const selectedPlace =
+        manualHomePlace ?? INITIAL_MAP_CENTER
+
+      const valid =
+        await isJapanAdministrativeCoordinate(
+          selectedPlace
+        )
+
+      if (!valid) {
+        throw new Error(
+          "Choose a land area in Japan."
+        )
+      }
+
       await saveHomeLocation(
-        manualHomePlace
+        selectedPlace
       )
 
     } catch (error) {
@@ -683,13 +747,13 @@ export default function HomeScreen({
       <FullScreenMapPicker
         eyebrow="Compare"
         title="Choose place"
-        subtitle="Tap a land area in Japan to compare it with Home."
+        subtitle="Move the map to place the area under the center pin, then select it."
         mapTitle="Japan map"
-        value={manualCurrentPlace}
+        value={manualCurrentPlace ?? INITIAL_MAP_CENTER}
         markerTitle="Selected place"
-        actionTitle="Check selected place"
+        actionTitle="Select this area"
         loading={loading}
-        disabled={!manualCurrentPlace || loading}
+        disabled={loading}
         onBack={handleCloseCurrentPicker}
         onChange={setManualCurrentPlace}
         onSubmit={handleCheckManualLocation}
@@ -702,13 +766,13 @@ export default function HomeScreen({
       <FullScreenMapPicker
         eyebrow="Home"
         title="Choose Home"
-        subtitle="Tap a land area in Japan to save it as Home."
+        subtitle="Move the map to place your Home under the center pin, then select it."
         mapTitle="Japan map"
-        value={manualHomePlace}
+        value={manualHomePlace ?? INITIAL_MAP_CENTER}
         markerTitle="Home"
-        actionTitle="Save Home"
+        actionTitle="Select this area"
         loading={savingHome}
-        disabled={!manualHomePlace || savingHome || homeUpdateLocked}
+        disabled={savingHome || homeUpdateLocked}
         onBack={handleCloseHomePicker}
         onChange={setManualHomePlace}
         onSubmit={handleSaveManualHome}
@@ -772,7 +836,9 @@ export default function HomeScreen({
             {result
               ? similarityLabel(result.similarity)
               : hasHomeLocation
-                ? "Use your current location or choose a place on the map."
+                ? hasLocationPermission
+                  ? "Use your current location or choose a place on the map."
+                  : "Choose a place on the map."
                 : "Set Home below before checking your current location."}
           </Text>
 
@@ -799,16 +865,18 @@ export default function HomeScreen({
               </Text>
             ) : null}
 
-          <PrimaryButton
-            title="Check current location"
-            loading={loading}
-            disabled={
-              loading ||
-              !homeStatusLoaded ||
-              !hasHomeLocation
-            }
-            onPress={handleCheckDeviceLocation}
-          />
+          {hasLocationPermission ? (
+            <PrimaryButton
+              title="Check current location"
+              loading={loading}
+              disabled={
+                loading ||
+                !homeStatusLoaded ||
+                !hasHomeLocation
+              }
+              onPress={handleCheckDeviceLocation}
+            />
+          ) : null}
 
           <PrimaryButton
             title="Choose place manually"
@@ -960,17 +1028,18 @@ function FullScreenMapPicker({
           title={mapTitle}
           value={value}
           markerTitle={markerTitle}
-          helperText={
-            value
-              ? "Selected. You can tap another area to change it."
-              : "Tap the map to choose an area."
-          }
-          onChange={onChange}
+          helperText="Move the map and place the area under the center pin."
+          onCenterChange={onChange}
+          selectionMode="center"
           fullScreen
         />
       </View>
 
       <View style={styles.fullScreenFooter}>
+        <Text style={styles.fullScreenFooterHelp}>
+          When the pin is centered on the area, tap the button below.
+        </Text>
+
         <PrimaryButton
           title={actionTitle}
           loading={loading}
@@ -1526,5 +1595,12 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: design.colors.softLine,
     backgroundColor: design.colors.paper,
+  },
+  fullScreenFooterHelp: {
+    color: design.colors.muted,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 10,
+    textAlign: "center",
   },
 })

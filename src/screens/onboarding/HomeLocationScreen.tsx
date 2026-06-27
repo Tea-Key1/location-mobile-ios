@@ -163,7 +163,7 @@ export default function HomeLocationScreen() {
       <View style={styles.options}>
         <ChoiceCard
           title="Select manually"
-          detail="Open the Japan map and tap your home area."
+          detail="Open the Japan map, center your home area under the pin, and select it."
           tone="blue"
           onPress={handleSelectManually}
         />

@@ -33,12 +33,21 @@ import {
 } from "../../types/location"
 
 import {
+  isJapanAdministrativeCoordinate,
+} from "../../utils/location"
+
+import {
   design,
 } from "../../styles/design"
 
 import {
   submitHomeLocationOnboarding,
 } from "./homeLocationSubmission"
+
+const INITIAL_CENTER: Coordinate = {
+  lat: 36.2048,
+  lng: 138.2529,
+}
 
 export default function HomeLocationManualScreen() {
 
@@ -52,28 +61,36 @@ export default function HomeLocationManualScreen() {
   ] = useState(false)
 
   const [
-    selectedHome,
-    setSelectedHome,
+    centerHome,
+    setCenterHome,
   ] = useState<Coordinate | null>(null)
 
   const handleContinue = async () => {
-
-    if (!selectedHome) {
-      Alert.alert(
-        "Choose a home area",
-        "Tap the map to choose your home area."
-      )
-
-      return
-    }
 
     try {
 
       setSaving(true)
 
+      const coordinate =
+        centerHome ?? INITIAL_CENTER
+
+      const valid =
+        await isJapanAdministrativeCoordinate(
+          coordinate
+        )
+
+      if (!valid) {
+        Alert.alert(
+          "Choose an area in Japan",
+          "Move the map so the center pin is on a land area in Japan, then try again."
+        )
+
+        return
+      }
+
       await submitHomeLocationOnboarding(
         route.params,
-        selectedHome
+        coordinate
       )
 
       navigation.navigate(
@@ -129,7 +146,7 @@ export default function HomeLocationManualScreen() {
           </Text>
 
           <Text style={styles.subtitle}>
-            Tap a land area in Japan to set your home area.
+            Move the map to place your home area under the center pin.
           </Text>
         </View>
       </View>
@@ -137,23 +154,24 @@ export default function HomeLocationManualScreen() {
       <View style={styles.mapWrap}>
         <JapanMapPicker
           title="Japan map"
-          value={selectedHome}
+          value={centerHome ?? INITIAL_CENTER}
           markerTitle="Home area"
-          helperText={
-            selectedHome
-              ? "Selected. You can tap another area to change it."
-              : "Tap the map to choose your home area."
-          }
-          onChange={setSelectedHome}
+          helperText="Move the map and place the area you care about under the center pin."
+          onCenterChange={setCenterHome}
+          selectionMode="center"
           fullScreen
         />
       </View>
 
       <View style={styles.footer}>
+        <Text style={styles.footerHelp}>
+          When the pin is centered on your home area, tap the button below.
+        </Text>
+
         <PrimaryButton
-          title="Use selected area"
+          title="Select this area"
           loading={saving}
-          disabled={!selectedHome || saving}
+          disabled={saving}
           onPress={handleContinue}
         />
       </View>
@@ -219,5 +237,12 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: design.colors.softLine,
     backgroundColor: design.colors.paper,
+  },
+  footerHelp: {
+    color: design.colors.muted,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 10,
+    textAlign: "center",
   },
 })
